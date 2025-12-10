@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CampaignProvider } from './context/CampaignContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -23,12 +24,30 @@ const App: React.FC = () => {
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/browse" element={<BrowsePage />} />
-                <Route path="/campaign/:id" element={<CampaignDetailsPage />} />
-                <Route path="/campaign/:id/donate" element={<DonationPage />} />
-                <Route path="/create" element={<CreateCampaignPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                
+                {/* Protected Routes */}
+                <Route path="/browse" element={
+                  <ProtectedRoute>
+                    <BrowsePage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/campaign/:id" element={
+                  <ProtectedRoute>
+                    <CampaignDetailsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/campaign/:id/donate" element={
+                  <ProtectedRoute>
+                    <DonationPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/create" element={
+                  <ProtectedRoute>
+                    <CreateCampaignPage />
+                  </ProtectedRoute>
+                } />
               </Routes>
             </main>
             <Footer />

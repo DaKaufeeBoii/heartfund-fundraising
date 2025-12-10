@@ -1,7 +1,6 @@
-
-import React, { createContext, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useState, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import type { Campaign } from '../types';
-import { MOCK_CAMPAIGNS } from '../constants';
+import { storage } from '../services/storage';
 
 interface CampaignContextType {
   campaigns: Campaign[];
@@ -17,24 +16,21 @@ interface CampaignProviderProps {
 }
 
 export const CampaignProvider: React.FC<CampaignProviderProps> = ({ children }) => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  // Load campaigns from storage
+  useEffect(() => {
+    setCampaigns(storage.getCampaigns());
+  }, []);
 
   const addCampaign = useCallback((campaign: Campaign) => {
-    setCampaigns(prev => [campaign, ...prev]);
+    storage.saveCampaign(campaign);
+    setCampaigns(storage.getCampaigns()); // Refresh from storage
   }, []);
 
   const updateDonation = useCallback((campaignId: string, amount: number) => {
-    setCampaigns(prev =>
-      prev.map(c =>
-        c.id === campaignId
-          ? {
-              ...c,
-              currentAmount: c.currentAmount + amount,
-              donors: c.donors + 1,
-            }
-          : c
-      )
-    );
+    storage.updateDonation(campaignId, amount);
+    setCampaigns(storage.getCampaigns()); // Refresh from storage
   }, []);
   
   const getCampaignById = useCallback((id: string) => {

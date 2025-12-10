@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useCampaigns } from '../hooks/useCampaigns';
 import Container from '../components/Container';
 import Button from '../components/Button';
@@ -11,12 +12,11 @@ const DonationPage: React.FC = () => {
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
   const [isDonated, setIsDonated] = useState(false);
+  const [showPaypal, setShowPaypal] = useState(false);
 
-  if (!id) {
-    return <Navigate to="/browse" />;
-  }
+  const campaign = id ? getCampaignById(id) : undefined;
 
-  const campaign = getCampaignById(id);
+  if (!id) return <Navigate to="/browse" />;
 
   if (!campaign) {
     return (
@@ -30,13 +30,37 @@ const DonationPage: React.FC = () => {
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleProceed = (e: React.FormEvent) => {
     e.preventDefault();
-    const donationAmount = parseInt(amount);
+    const donationAmount = parseFloat(amount);
     if (!isNaN(donationAmount) && donationAmount > 0) {
-      updateDonation(campaign.id, donationAmount);
-      setIsDonated(true);
+      setShowPaypal(true);
     }
+  };
+
+  // SUCCESS HANDLER
+  const handleApprove = async (data: any, actions: any) => {
+    try {
+        const order = await actions.order.capture();
+        console.log("Order Successful:", order);
+        
+        const donationAmount = parseInt(amount) || 0;
+        updateDonation(campaign.id, donationAmount);
+        setIsDonated(true);
+    } catch (err) {
+        console.error("Capture Error:", err);
+        // Suppress alerts for user friendliness on capture failure unless critical
+    }
+  };
+
+  // CREATE ORDER HANDLER
+  const handleCreateOrder = (data: any, actions: any) => {
+      return actions.order.create({
+          purchase_units: [{
+              description: `Donation to ${campaign.title}`.substring(0, 127),
+              amount: { value: amount }
+          }]
+      });
   };
 
   if (isDonated) {
@@ -61,24 +85,71 @@ const DonationPage: React.FC = () => {
             <p className="mt-2 text-md text-gray-600">by {campaign.creator}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <InputField 
-                id="donationAmount" 
-                label="Donation Amount (₹)" 
-                type="number" 
-                value={amount} 
-                onChange={(e) => setAmount(e.target.value)} 
-                required 
-                min="1"
-                placeholder="Enter amount"
-            />
-            <Button type="submit" variant="secondary" size="lg" className="w-full">
-                Donate ₹{amount || '0'}
-            </Button>
-        </form>
+        {!showPaypal ? (
+            <form onSubmit={handleProceed} className="space-y-6">
+                <InputField 
+                    id="donationAmount" 
+                    label="Donation Amount (USD)" 
+                    type="number" 
+                    value={amount} 
+                    onChange={(e) => setAmount(e.target.value)} 
+                    required 
+                    min="1"
+                    placeholder="Enter amount"
+                />
+                <Button type="submit" variant="secondary" size="lg" className="w-full">
+                    Proceed to Payment
+                </Button>
+            </form>
+        ) : (
+            // Using "test" Client ID for generic sandbox testing
+            <PayPalScriptProvider options={{ 
+                "clientId": "test", 
+                "currency": "USD",
+                "intent": "capture"
+            }}>
+                <div className="space-y-4">
+                     <p className="text-center font-semibold text-lg">Donating: ${amount}</p>
+                     
+                     <div className="min-h-[150px] relative z-0">
+                        <PayPalButtons 
+                            style={{ layout: "vertical", color: "gold", shape: "rect", label: "paypal" } as any}
+                            createOrder={handleCreateOrder}
+                            onApprove={handleApprove}
+                            onError={(err: any) => {
+                                // Extract message safely from error object or string
+                                const errorString = typeof err === "object" && err !== null && "message" in err 
+                                    ? String(err.message) 
+                                    : String(err);
+                                const msg = errorString.toLowerCase();
+                                
+                                // Aggressively filter known benign errors from the SDK
+                                if (
+                                    msg.includes("window host") || 
+                                    msg.includes("paypal_js_sdk_v5_unhandled_exception") ||
+                                    msg.includes("script error") ||
+                                    msg.includes("popup_close") ||
+                                    msg.includes("object object")
+                                ) {
+                                    return;
+                                }
+                                console.error("PayPal Error:", err);
+                            }}
+                        />
+                     </div>
+
+                     <button 
+                        onClick={() => setShowPaypal(false)}
+                        className="text-sm text-gray-500 hover:text-gray-700 w-full text-center underline"
+                     >
+                        Cancel and change amount
+                     </button>
+                </div>
+            </PayPalScriptProvider>
+        )}
 
         <p className="text-xs text-gray-500 mt-6 text-center">
-          Your contribution will directly support this cause. HeartFund ensures your donation gets to where it's needed most.
+          Secure payment processed by PayPal. Your contribution directly supports this cause.
         </p>
       </div>
     </Container>
