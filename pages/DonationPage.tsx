@@ -89,7 +89,7 @@ const DonationPage: React.FC = () => {
             <form onSubmit={handleProceed} className="space-y-6">
                 <InputField 
                     id="donationAmount" 
-                    label="Donation Amount (USD)" 
+                    label="Donation Amount (INR)" 
                     type="number" 
                     value={amount} 
                     onChange={(e) => setAmount(e.target.value)} 
@@ -109,7 +109,7 @@ const DonationPage: React.FC = () => {
                 "intent": "capture"
             }}>
                 <div className="space-y-4">
-                     <p className="text-center font-semibold text-lg">Donating: ${amount}</p>
+                     <p className="text-center font-semibold text-lg">Donating: ₹{amount}</p>
                      
                      <div className="min-h-[150px] relative z-0">
                         <PayPalButtons 
