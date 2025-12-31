@@ -1,6 +1,9 @@
-import React from 'react';
+
+import React, { useEffect } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { useCampaigns } from '../hooks/useCampaigns';
+import { useAuth } from '../hooks/useAuth';
+import { storage } from '../services/storage';
 import Container from '../components/Container';
 import Button from '../components/Button';
 import ProgressBar from '../components/ProgressBar';
@@ -8,12 +11,19 @@ import ProgressBar from '../components/ProgressBar';
 const CampaignDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getCampaignById } = useCampaigns();
+  const { user } = useAuth();
   
+  const campaign = id ? getCampaignById(id) : undefined;
+
+  useEffect(() => {
+    if (user && id && campaign) {
+      storage.addRecentCampaign(user.id, id);
+    }
+  }, [id, user, campaign]);
+
   if (!id) {
     return <Navigate to="/browse" />;
   }
-
-  const campaign = getCampaignById(id);
 
   if (!campaign) {
     return (

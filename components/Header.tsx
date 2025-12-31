@@ -21,7 +21,10 @@ const Header: React.FC = () => {
       <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
         <NavLink to="/browse" className={getNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>Browse Campaigns</NavLink>
         {isAuthenticated && (
-          <NavLink to="/create" className={getNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>Start a Campaign</NavLink>
+          <>
+            <NavLink to="/history" className={getNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>My History</NavLink>
+            <NavLink to="/create" className={getNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>Start a Campaign</NavLink>
+          </>
         )}
       </div>
       <div className="pt-4 pb-3 border-t border-gray-200">
@@ -33,6 +36,7 @@ const Header: React.FC = () => {
             <div className="ml-3">
               <div className="text-base font-medium text-gray-800">{user?.name}</div>
               <div className="text-sm font-medium text-gray-500">{user?.email}</div>
+              <button onClick={logout} className="mt-1 text-xs text-secondary font-bold hover:underline">Logout</button>
             </div>
           </div>
         ) : (
@@ -55,7 +59,10 @@ const Header: React.FC = () => {
               <span className="text-2xl font-extrabold tracking-tight">HeartFund</span>
             </Link>
             <nav className="hidden md:ml-10 md:flex md:space-x-4">
-              <NavLink to="/browse" className={getNavLinkClass}>Browse Campaigns</NavLink>
+              <NavLink to="/browse" className={getNavLinkClass}>Browse</NavLink>
+              {isAuthenticated && (
+                <NavLink to="/history" className={getNavLinkClass}>My History</NavLink>
+              )}
             </nav>
           </div>
           <div className="hidden md:flex items-center space-x-4">
@@ -64,7 +71,10 @@ const Header: React.FC = () => {
                 <Link to="/create">
                   <Button variant="secondary" size="sm">Start a Campaign</Button>
                 </Link>
-                <Button onClick={logout} variant="primary" size="sm">Logout</Button>
+                <div className="flex items-center space-x-2 border-l pl-4 border-gray-200">
+                  <img src={user?.avatar} alt="" className="h-8 w-8 rounded-full border border-gray-200" />
+                  <Button onClick={logout} variant="primary" size="sm">Logout</Button>
+                </div>
               </>
             ) : (
               <>

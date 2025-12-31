@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -13,6 +14,7 @@ import CreateCampaignPage from './pages/CreateCampaignPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DonationPage from './pages/DonationPage';
+import HistoryPage from './pages/HistoryPage';
 
 const App: React.FC = () => {
   return (
@@ -31,6 +33,11 @@ const App: React.FC = () => {
                 <Route path="/browse" element={
                   <ProtectedRoute>
                     <BrowsePage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/history" element={
+                  <ProtectedRoute>
+                    <HistoryPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/campaign/:id" element={

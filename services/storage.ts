@@ -1,17 +1,18 @@
-import { Campaign, User } from '../types';
+
+import { Campaign, User, DonationRecord, UserHistory } from '../types';
 import { MOCK_CAMPAIGNS } from '../constants';
 
 const KEYS = {
   USERS: 'heartfund_users',
   CAMPAIGNS: 'heartfund_campaigns',
-  CURRENT_USER: 'heartfund_current_user'
+  CURRENT_USER: 'heartfund_current_user',
+  HISTORY_PREFIX: 'heartfund_history_'
 };
 
 interface StoredUser extends User {
   password?: string;
 }
 
-// Initialize DB if empty
 const initializeDB = () => {
   if (!localStorage.getItem(KEYS.CAMPAIGNS)) {
     localStorage.setItem(KEYS.CAMPAIGNS, JSON.stringify(MOCK_CAMPAIGNS));
@@ -72,5 +73,25 @@ export const storage = {
   getCurrentUser: (): User | null => {
     const data = localStorage.getItem(KEYS.CURRENT_USER);
     return data ? JSON.parse(data) : null;
+  },
+
+  // User History Logic
+  getUserHistory: (userId: string): UserHistory => {
+    const data = localStorage.getItem(`${KEYS.HISTORY_PREFIX}${userId}`);
+    return data ? JSON.parse(data) : { donations: [], recentlyViewedIds: [] };
+  },
+
+  addDonationToHistory: (userId: string, record: DonationRecord) => {
+    const history = storage.getUserHistory(userId);
+    history.donations = [record, ...history.donations];
+    localStorage.setItem(`${KEYS.HISTORY_PREFIX}${userId}`, JSON.stringify(history));
+  },
+
+  addRecentCampaign: (userId: string, campaignId: string) => {
+    const history = storage.getUserHistory(userId);
+    // Move to front if exists, or just add
+    const filtered = history.recentlyViewedIds.filter(id => id !== campaignId);
+    history.recentlyViewedIds = [campaignId, ...filtered].slice(0, 5);
+    localStorage.setItem(`${KEYS.HISTORY_PREFIX}${userId}`, JSON.stringify(history));
   }
 };

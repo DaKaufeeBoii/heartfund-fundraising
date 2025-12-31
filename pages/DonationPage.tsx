@@ -1,7 +1,10 @@
+
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useCampaigns } from '../hooks/useCampaigns';
+import { useAuth } from '../hooks/useAuth';
+import { storage } from '../services/storage';
 import Container from '../components/Container';
 import Button from '../components/Button';
 import InputField from '../components/InputField';
@@ -9,6 +12,7 @@ import InputField from '../components/InputField';
 const DonationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getCampaignById, updateDonation } = useCampaigns();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
   const [isDonated, setIsDonated] = useState(false);
@@ -42,18 +46,29 @@ const DonationPage: React.FC = () => {
   const handleApprove = async (data: any, actions: any) => {
     try {
         const order = await actions.order.capture();
-        console.log("Order Successful:", order);
+        const donationAmount = parseFloat(amount) || 0;
         
-        const donationAmount = parseInt(amount) || 0;
+        // Update campaign globally
         updateDonation(campaign.id, donationAmount);
+        
+        // Log to user history
+        if (user) {
+          storage.addDonationToHistory(user.id, {
+            id: `donate-${Date.now()}`,
+            campaignId: campaign.id,
+            campaignTitle: campaign.title,
+            amount: donationAmount,
+            date: new Date().toISOString(),
+            transactionId: order.id
+          });
+        }
+
         setIsDonated(true);
     } catch (err) {
         console.error("Capture Error:", err);
-        // Suppress alerts for user friendliness on capture failure unless critical
     }
   };
 
-  // CREATE ORDER HANDLER
   const handleCreateOrder = (data: any, actions: any) => {
       return actions.order.create({
           purchase_units: [{
@@ -68,10 +83,15 @@ const DonationPage: React.FC = () => {
         <Container className="py-20 text-center">
             <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-xl">
                 <h1 className="text-3xl font-extrabold text-green-600 mb-4">Thank You!</h1>
-                <p className="text-lg text-gray-700 mb-6">Your generous donation of ₹{amount} to "{campaign.title}" is greatly appreciated.</p>
-                <Button onClick={() => navigate(`/campaign/${campaign.id}`)} variant="primary">
-                    Back to Campaign
-                </Button>
+                <p className="text-lg text-gray-700 mb-6">Your generous donation of ${amount} to "{campaign.title}" is greatly appreciated.</p>
+                <div className="space-y-3">
+                  <Button onClick={() => navigate(`/campaign/${campaign.id}`)} variant="primary" className="w-full">
+                      Back to Campaign
+                  </Button>
+                  <Button onClick={() => navigate('/history')} variant="accent" className="w-full">
+                      View My History
+                  </Button>
+                </div>
             </div>
         </Container>
     );
@@ -89,7 +109,7 @@ const DonationPage: React.FC = () => {
             <form onSubmit={handleProceed} className="space-y-6">
                 <InputField 
                     id="donationAmount" 
-                    label="Donation Amount (INR)" 
+                    label="Donation Amount (USD)" 
                     type="number" 
                     value={amount} 
                     onChange={(e) => setAmount(e.target.value)} 
@@ -102,14 +122,13 @@ const DonationPage: React.FC = () => {
                 </Button>
             </form>
         ) : (
-            // Using "test" Client ID for generic sandbox testing
             <PayPalScriptProvider options={{ 
                 "clientId": "test", 
                 "currency": "USD",
                 "intent": "capture"
             }}>
                 <div className="space-y-4">
-                     <p className="text-center font-semibold text-lg">Donating: ₹{amount}</p>
+                     <p className="text-center font-semibold text-lg">Donating: ${amount}</p>
                      
                      <div className="min-h-[150px] relative z-0">
                         <PayPalButtons 
@@ -117,13 +136,10 @@ const DonationPage: React.FC = () => {
                             createOrder={handleCreateOrder}
                             onApprove={handleApprove}
                             onError={(err: any) => {
-                                // Extract message safely from error object or string
                                 const errorString = typeof err === "object" && err !== null && "message" in err 
                                     ? String(err.message) 
                                     : String(err);
                                 const msg = errorString.toLowerCase();
-                                
-                                // Aggressively filter known benign errors from the SDK
                                 if (
                                     msg.includes("window host") || 
                                     msg.includes("paypal_js_sdk_v5_unhandled_exception") ||
