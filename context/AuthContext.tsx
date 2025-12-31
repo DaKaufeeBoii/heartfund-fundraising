@@ -1,69 +1,104 @@
+
 import React, { createContext, useState, ReactNode, useMemo, useEffect } from 'react';
 import type { User } from '../types';
-import { storage } from '../services/storage';
+import { supabase } from '../services/supabase';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isAuthenticated: boolean;
+  loading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load user from storage on mount
   useEffect(() => {
-    const storedUser = storage.getCurrentUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-  }, []);
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    const storedUser = storage.findUser(email);
-    if (storedUser && storedUser.password === password) {
-      const { password, ...userWithoutPassword } = storedUser;
-      setUser(userWithoutPassword);
-      storage.setCurrentUser(userWithoutPassword);
-      return true;
-    }
-    return false;
-  };
-
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    const existing = storage.findUser(email);
-    if (existing) {
-      return false; // User exists
-    }
-    
-    const newUser = {
-      id: `user-${Date.now()}`,
-      name,
-      email,
-      password, // In a real app, hash this!
-      avatar: `https://picsum.photos/seed/${name}/100/100`,
+    // Check active sessions and sets the user
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile) {
+          setUser({
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            avatar: profile.avatar,
+          });
+        }
+      }
+      setLoading(false);
     };
 
-    storage.saveUser(newUser);
-    
-    // Auto login after register
-    const { password: _, ...userWithoutPassword } = newUser;
-    setUser(userWithoutPassword);
-    storage.setCurrentUser(userWithoutPassword);
-    return true;
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profile) {
+          setUser({
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            avatar: profile.avatar,
+          });
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
   };
 
-  const logout = () => {
+  const register = async (name: string, email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        data: { full_name: name }
+      }
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    if (data.user) {
+      const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+      const { error: profileError } = await supabase.from('profiles').insert([
+        { id: data.user.id, name, email, avatar }
+      ]);
+      if (profileError) return { success: false, error: profileError.message };
+    }
+
+    return { success: true };
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    storage.setCurrentUser(null);
   };
 
   const authValue = useMemo(() => ({
@@ -72,7 +107,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     isAuthenticated: user !== null,
-  }), [user]);
+    loading,
+  }), [user, loading]);
 
   return (
     <AuthContext.Provider value={authValue}>
