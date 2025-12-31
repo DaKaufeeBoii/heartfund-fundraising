@@ -168,31 +168,53 @@ const DonationPage: React.FC = () => {
                               createOrder={handleCreateOrder}
                               onApprove={handleApprove}
                               onError={(err: any) => {
-                                  const errorString = String(err).toLowerCase();
-                                  if (errorString.includes("window host") || errorString.includes("script error")) return;
-                                  setSimulationMsg({ type: 'error', text: 'PayPal SDK encountered an error.' });
+                                  // Standard filter for noisy, benign PayPal SDK errors
+                                  const rawMsg = err?.message || String(err);
+                                  const msg = rawMsg.toLowerCase();
+                                  
+                                  const silentErrors = [
+                                      "paypal_js_sdk_v5_unhandled_exception",
+                                      "script error",
+                                      "window host",
+                                      "popup_close",
+                                      "[object object]"
+                                  ];
+
+                                  if (silentErrors.some(term => msg.includes(term))) {
+                                      console.debug("Filtered PayPal SDK noise:", rawMsg);
+                                      return;
+                                  }
+
+                                  console.error("PayPal Error Details:", err);
+                                  setSimulationMsg({ 
+                                    type: 'error', 
+                                    text: 'PayPal encountered a temporary issue. Please refresh or try our simulation tools below.' 
+                                  });
                               }}
                           />
                       </div>
                   </PayPalScriptProvider>
 
                   <div className="border-t pt-6 mt-6">
-                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">Simulation Sandbox Tools</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Simulation Sandbox Tools</h3>
+                      <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded font-bold">DEV ONLY</span>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* PayPal Simulations */}
-                      <div className="space-y-2 p-3 border border-dashed border-gray-300 rounded-md">
-                        <p className="text-xs font-bold text-gray-400 mb-2">PAYPAL SIMULATOR</p>
-                        <button onClick={() => simulatePayment('PayPal', 'success')} className="w-full py-2 px-3 text-xs bg-green-50 text-green-700 hover:bg-green-100 rounded border border-green-200 transition-colors">Success</button>
-                        <button onClick={() => simulatePayment('PayPal', 'failure')} className="w-full py-2 px-3 text-xs bg-red-50 text-red-700 hover:bg-red-100 rounded border border-red-200 transition-colors">Failure</button>
-                        <button onClick={() => simulatePayment('PayPal', 'timeout')} className="w-full py-2 px-3 text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 rounded border border-amber-200 transition-colors">Timeout</button>
+                      <div className="space-y-2 p-3 border border-dashed border-gray-300 rounded-md bg-gray-50/50">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-tighter">PayPal Simulation</p>
+                        <button onClick={() => simulatePayment('PayPal', 'success')} className="w-full py-2 px-3 text-xs bg-green-50 text-green-700 hover:bg-green-100 rounded border border-green-200 transition-colors">Simulate Success</button>
+                        <button onClick={() => simulatePayment('PayPal', 'failure')} className="w-full py-2 px-3 text-xs bg-red-50 text-red-700 hover:bg-red-100 rounded border border-red-200 transition-colors">Simulate Decline</button>
+                        <button onClick={() => simulatePayment('PayPal', 'timeout')} className="w-full py-2 px-3 text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 rounded border border-amber-200 transition-colors">Simulate Timeout</button>
                       </div>
 
                       {/* Card Simulations */}
-                      <div className="space-y-2 p-3 border border-dashed border-gray-300 rounded-md">
-                        <p className="text-xs font-bold text-gray-400 mb-2">CARD SIMULATOR</p>
-                        <button onClick={() => simulatePayment('Card', 'success')} className="w-full py-2 px-3 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 transition-colors">Success</button>
-                        <button onClick={() => simulatePayment('Card', 'failure')} className="w-full py-2 px-3 text-xs bg-red-50 text-red-700 hover:bg-red-100 rounded border border-red-200 transition-colors">Failure</button>
-                        <button onClick={() => simulatePayment('Card', 'timeout')} className="w-full py-2 px-3 text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 rounded border border-amber-200 transition-colors">Timeout</button>
+                      <div className="space-y-2 p-3 border border-dashed border-gray-300 rounded-md bg-gray-50/50">
+                        <p className="text-[10px] font-bold text-gray-400 mb-2 uppercase tracking-tighter">Debit/Credit Simulation</p>
+                        <button onClick={() => simulatePayment('Card', 'success')} className="w-full py-2 px-3 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 transition-colors">Simulate Success</button>
+                        <button onClick={() => simulatePayment('Card', 'failure')} className="w-full py-2 px-3 text-xs bg-red-50 text-red-700 hover:bg-red-100 rounded border border-red-200 transition-colors">Simulate Decline</button>
+                        <button onClick={() => simulatePayment('Card', 'timeout')} className="w-full py-2 px-3 text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 rounded border border-amber-200 transition-colors">Simulate Timeout</button>
                       </div>
                     </div>
                   </div>
