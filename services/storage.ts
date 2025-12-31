@@ -83,13 +83,17 @@ export const storage = {
 
   addDonationToHistory: (userId: string, record: DonationRecord) => {
     const history = storage.getUserHistory(userId);
-    history.donations = [record, ...history.donations];
+    // Ensure the record includes the transactionId before saving
+    const newRecord = {
+      ...record,
+      transactionId: record.transactionId || `TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+    };
+    history.donations = [newRecord, ...history.donations];
     localStorage.setItem(`${KEYS.HISTORY_PREFIX}${userId}`, JSON.stringify(history));
   },
 
   addRecentCampaign: (userId: string, campaignId: string) => {
     const history = storage.getUserHistory(userId);
-    // Move to front if exists, or just add
     const filtered = history.recentlyViewedIds.filter(id => id !== campaignId);
     history.recentlyViewedIds = [campaignId, ...filtered].slice(0, 5);
     localStorage.setItem(`${KEYS.HISTORY_PREFIX}${userId}`, JSON.stringify(history));

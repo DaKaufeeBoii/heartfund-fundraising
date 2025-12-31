@@ -28,9 +28,9 @@ const HistoryPage: React.FC = () => {
 
   return (
     <Container className="py-12">
-      <div className="mb-10">
+      <div className="mb-10 text-center md:text-left">
         <h1 className="text-4xl font-extrabold text-neutral tracking-tight">My Impact Dashboard</h1>
-        <p className="mt-2 text-lg text-gray-600">Track your journey with HeartFund causes.</p>
+        <p className="mt-2 text-lg text-gray-600">Review your contributions and recently viewed causes.</p>
       </div>
 
       {/* Stats Summary */}
@@ -52,27 +52,34 @@ const HistoryPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         {/* Payment History List */}
         <div className="lg:col-span-2">
-          <h2 className="text-2xl font-bold text-neutral mb-6">Payment History</h2>
+          <h2 className="text-2xl font-bold text-neutral mb-6 flex items-center">
+            <span className="bg-primary w-2 h-8 mr-3 rounded-full"></span>
+            Payment History
+          </h2>
           {history.donations.length > 0 ? (
-            <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-100">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {history.donations.map((d) => (
                     <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(d.date).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 text-sm font-medium text-primary">
+                      <td className="px-4 py-4 text-sm font-medium text-primary">
                         {d.campaignTitle}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-neutral">
+                      <td className="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-400">
+                        {d.transactionId}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-bold text-neutral">
                         ${d.amount.toFixed(2)}
                       </td>
                     </tr>
@@ -89,7 +96,10 @@ const HistoryPage: React.FC = () => {
 
         {/* Recently Viewed Sidebar */}
         <div>
-          <h2 className="text-2xl font-bold text-neutral mb-6">Recently Viewed</h2>
+          <h2 className="text-2xl font-bold text-neutral mb-6 flex items-center">
+            <span className="bg-accent w-2 h-8 mr-3 rounded-full"></span>
+            Recently Viewed
+          </h2>
           <div className="space-y-6">
             {recentlyViewed.length > 0 ? (
               recentlyViewed.map(campaign => (
