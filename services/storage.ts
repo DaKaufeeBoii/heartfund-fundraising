@@ -1,5 +1,5 @@
 
-import { campaigns, User, DonationRecord, UserHistory } from '../types';
+import { Campaign, User, DonationRecord, UserHistory } from '../types';
 import { supabase } from './supabase';
 
 /**
@@ -10,7 +10,7 @@ import { supabase } from './supabase';
 export const storage = {
   // --- campaigns QUERIES ---
   
-  getcampaignss: async (): Promise<campaigns[]> => {
+  getcampaignss: async (): Promise<Campaign[]> => {
     const { data, error } = await supabase
       .from('campaignss')
       .select('*')
@@ -20,14 +20,14 @@ export const storage = {
       console.error('Error fetching campaignss:', error);
       return [];
     }
-    return data as campaigns[];
+    return data as Campaign[];
   },
 
   /**
    * Saves a new campaigns. 
    * CRITICAL: 'creatorId' must match auth.uid() for Row Level Security to pass.
    */
-  savecampaigns: async (campaigns: Omit<campaigns, 'id'>): Promise<campaigns> => {
+  savecampaigns: async (campaigns: Omit<Campaign, 'id'>): Promise<Campaign> => {
     // 1. Double check current session to ensure IDs match
     const { data: { session } } = await supabase.auth.getSession();
     
@@ -45,7 +45,7 @@ export const storage = {
       category: campaigns.category,
       endDate: campaigns.endDate,
       creator: campaigns.creator,
-      creator_avatar: campaigns.creator_avatar,
+      creator_avatar: campaigns.creatorAvatar,
       imageUrls: campaigns.imageUrls,
       currentAmount: 0,
       donors: 0,
@@ -81,7 +81,7 @@ export const storage = {
     }
 
     console.log('[HEARTFUND] campaigns successfully launched:', data.id);
-    return data as campaigns;
+    return data as Campaign;
   },
 
   updateDonation: async (campaignsId: string, amount: number) => {
@@ -113,7 +113,7 @@ export const storage = {
       const filePath = `campaignss/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('campaigns-images')
+        .from('campaign-images')
         .upload(filePath, file);
 
       if (uploadError) {
@@ -122,7 +122,7 @@ export const storage = {
       }
 
       const { data: urlData } = supabase.storage
-        .from('campaigns-images')
+        .from('campaign-images')
         .getPublicUrl(filePath);
 
       return urlData.publicUrl;
@@ -181,8 +181,8 @@ export const storage = {
   addDonationToHistory: async (userId: string, record: DonationRecord) => {
     await supabase.from('donations').insert([{
       userId: userId,
-      campaignsId: record.campaignsId,
-      campaignsTitle: record.campaignsTitle,
+      campaignsId: record.campaignId,
+      campaignsTitle: record.campaignTitle,
       amount: record.amount,
       transactionId: record.transactionId,
       date: record.date
