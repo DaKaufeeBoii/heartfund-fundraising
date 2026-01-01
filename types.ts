@@ -1,5 +1,4 @@
 
-
 export interface Campaign {
   id: string;
   title: string;
@@ -9,12 +8,13 @@ export interface Campaign {
   creatorAvatar: string;
   description: string;
   longDescription: string;
-  imageUrls: string[]; // Changed from imageUrl: string
+  imageUrls: string[]; 
   goalAmount: number;
   currentAmount: number;
   donors: number;
   category: string;
   endDate: string;
+  createdAt?: string;
 }
 
 export interface User {

@@ -14,7 +14,7 @@ export const storage = {
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
-      .order('id', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching campaigns:', error);
@@ -35,7 +35,8 @@ export const storage = {
       throw new Error('You must be logged in to create a campaign.');
     }
 
-    // Ensure the payload strictly matches what the UI provides and what DB expects
+    // Ensure the payload strictly matches what the UI provides and what DB expects.
+    // Use "created_at" (camelCase) to match the SQL column we created with quotes.
     const payload = {
       title: campaign.title,
       description: campaign.description,
@@ -48,11 +49,11 @@ export const storage = {
       imageUrls: campaign.imageUrls,
       currentAmount: 0,
       donors: 0,
-      creatorId: session.user.id, // Hard-enforce the ID for RLS
-      createdat: new Date().toISOString()
+      creatorId: session.user.id, 
+      created_at: new Date().toISOString()
     };
 
-    console.log('[HEARTFUND] Attempting Insert:', payload);
+    console.log('[HEARTFUND] Final Insert Payload:', payload);
 
     const { data, error } = await supabase
       .from('campaigns')
@@ -63,23 +64,23 @@ export const storage = {
     if (error) {
       console.error('[HEARTFUND DATABASE ERROR]', error);
       
-      // Map cryptic Postgres errors to helpful human messages
-      if (error.message.includes('column "creatorAvatar" does not exist')) {
-        throw new Error('Database Schema Error: The "creatorAvatar" column is missing. Run the ALTER TABLE SQL provided.');
+      // Clear error mapping for common PostgREST schema cache issues
+      if (error.message.includes('column "created_at" does not exist') || error.message.includes('created_at')) {
+        throw new Error('Database Schema Error: The "created_at" column is missing or incorrectly named. Please run the provided SQL in your Supabase SQL Editor.');
       }
       
-      if (error.message.includes('column "imageUrls" does not exist')) {
-        throw new Error('Database Schema Error: The "imageUrls" column is missing. Ensure it is type text[] (array).');
+      if (error.message.includes('creatorAvatar')) {
+        throw new Error('Database Schema Error: The "creatorAvatar" column is missing.');
       }
 
       if (error.code === '42501') {
-        throw new Error('Security Policy Error: Your RLS policies are blocking the save. Ensure you have an INSERT policy for authenticated users.');
+        throw new Error('Security Policy Error: Your RLS policies are blocking this action.');
       }
 
       throw error;
     }
 
-    console.log('[HEARTFUND] Campaign created successfully:', data.id);
+    console.log('[HEARTFUND] Campaign successfully launched:', data.id);
     return data as Campaign;
   },
 
@@ -117,9 +118,6 @@ export const storage = {
 
       if (uploadError) {
         console.error('[HEARTFUND STORAGE ERROR]', uploadError);
-        if (uploadError.message.includes('not found')) {
-          throw new Error('Bucket "campaign-images" not found. Create it in Supabase > Storage.');
-        }
         throw uploadError;
       }
 
