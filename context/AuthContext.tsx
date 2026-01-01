@@ -1,13 +1,14 @@
 
 import React, { createContext, useState, ReactNode, useMemo, useEffect } from 'react';
 import type { User } from '../types';
+import { supabase } from '../services/supabase';
 import { storage } from '../services/storage';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -23,47 +24,69 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = storage.getCurrentUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
-    setIsLoading(false);
-  }, []);
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulate Supabase: supabase.auth.signInWithPassword({ email, password })
-    const storedUser = await storage.findUser(email);
-    if (storedUser && storedUser.password === password) {
-      const { password, ...userWithoutPassword } = storedUser;
-      setUser(userWithoutPassword);
-      storage.setCurrentUser(userWithoutPassword);
-      return true;
-    }
-    return false;
-  };
-
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    const existing = await storage.findUser(email);
-    if (existing) {
-      return false;
-    }
-    
-    const newUser = {
-      id: `user-${Date.now()}`,
-      name,
-      email,
-      password,
-      avatar: `https://picsum.photos/seed/${name}/100/100`,
+    // Check active sessions and sets the user
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const profile = {
+          id: session.user.id,
+          name: session.user.user_metadata.name || session.user.email?.split('@')[0],
+          email: session.user.email || '',
+          avatar: session.user.user_metadata.avatar || `https://picsum.photos/seed/${session.user.id}/100/100`,
+        };
+        setUser(profile);
+        storage.setCurrentUser(profile);
+      }
+      setIsLoading(false);
     };
 
-    await storage.saveUser(newUser);
-    const { password: _, ...userWithoutPassword } = newUser;
-    setUser(userWithoutPassword);
-    storage.setCurrentUser(userWithoutPassword);
-    return true;
+    checkUser();
+
+    // Listen for changes on auth state (logged in, signed out, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const profile = {
+          id: session.user.id,
+          name: session.user.user_metadata.name,
+          email: session.user.email || '',
+          avatar: session.user.user_metadata.avatar,
+        };
+        setUser(profile);
+        storage.setCurrentUser(profile);
+      } else {
+        setUser(null);
+        storage.setCurrentUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
   };
 
-  const logout = () => {
+  const register = async (name: string, email: string, password: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          avatar: `https://picsum.photos/seed/${email}/100/100`,
+        }
+      }
+    });
+    
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     storage.setCurrentUser(null);
   };

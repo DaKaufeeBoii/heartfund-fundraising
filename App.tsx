@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
 import BrowsePage from './pages/BrowsePage';
 import CampaignDetailsPage from './pages/CampaignDetailsPage';
 import CreateCampaignPage from './pages/CreateCampaignPage';
@@ -26,6 +27,7 @@ const App: React.FC = () => {
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 

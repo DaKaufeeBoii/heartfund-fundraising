@@ -20,6 +20,7 @@ const Header: React.FC = () => {
     <div className="md:hidden bg-white shadow-lg absolute top-16 right-0 left-0 z-20">
       <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
         <NavLink to="/browse" className={getNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>Browse Campaigns</NavLink>
+        <NavLink to="/about" className={getNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>About Us</NavLink>
         {isAuthenticated && (
           <>
             <NavLink to="/history" className={getNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>My History</NavLink>
@@ -60,6 +61,7 @@ const Header: React.FC = () => {
             </Link>
             <nav className="hidden md:ml-10 md:flex md:space-x-4">
               <NavLink to="/browse" className={getNavLinkClass}>Browse</NavLink>
+              <NavLink to="/about" className={getNavLinkClass}>About Us</NavLink>
               {isAuthenticated && (
                 <NavLink to="/history" className={getNavLinkClass}>My History</NavLink>
               )}
