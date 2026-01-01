@@ -39,7 +39,7 @@ export const storage = {
     const payload = {
       ...campaign,
       creatorId: session.user.id, // Hard-enforce the ID for RLS
-      createdAt: new Date().toISOString()
+      createdat: new Date().toISOString()
     };
 
     console.log('[HEARTFUND] Saving campaign payload:', payload);
