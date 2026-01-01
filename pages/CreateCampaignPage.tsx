@@ -20,9 +20,7 @@ const CreateCampaignPage: React.FC = () => {
   const [category, setCategory] = useState('');
   const [endDate, setEndDate] = useState('');
   
-  // Track actual File objects for uploading
   const [imageFiles, setImageFiles] = useState<File[]>([]);
-  // Track preview URLs for UI
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,12 +38,8 @@ const CreateCampaignPage: React.FC = () => {
       setUploadError(null);
       const selectedFiles = Array.from(files);
       const newFiles = [...imageFiles, ...selectedFiles].slice(0, 5);
-      
-      // Revoke old object URLs to prevent memory leaks
       previewUrls.forEach(url => URL.revokeObjectURL(url));
-      
       const newUrls = newFiles.map(file => URL.createObjectURL(file));
-      
       setImageFiles(newFiles);
       setPreviewUrls(newUrls);
     }
@@ -66,7 +60,7 @@ const CreateCampaignPage: React.FC = () => {
     let finalImageUrls: string[] = [];
 
     try {
-      // 1. Upload images to Supabase Storage sequentially
+      // 1. Upload images
       if (imageFiles.length > 0) {
         for (let i = 0; i < imageFiles.length; i++) {
           setUploadProgress(`Uploading evidence ${i + 1} of ${imageFiles.length}...`);
@@ -74,15 +68,13 @@ const CreateCampaignPage: React.FC = () => {
           finalImageUrls.push(publicUrl);
         }
       } else {
-        // Fallback placeholder if no image provided
         finalImageUrls = [`https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?w=800&h=500&fit=crop`];
       }
 
-      setUploadProgress('Finalizing campaign details...');
+      setUploadProgress('Finalizing with database...');
 
-      // 2. Save campaign record to database with public storage URLs
-      const newCampaign = {
-          id: String(Date.now()),
+      // 2. Save
+      const campaignPayload = {
           title,
           description,
           longDescription,
@@ -97,11 +89,18 @@ const CreateCampaignPage: React.FC = () => {
           donors: 0,
       };
 
-      await addCampaign(newCampaign);
-      navigate(`/campaign/${newCampaign.id}`);
+      const createdCampaign = await addCampaign(campaignPayload);
+      
+      setUploadProgress('Success! Redirecting...');
+      navigate(`/campaign/${createdCampaign.id}`);
     } catch (err: any) {
-      console.error('Failed to launch campaign:', err);
-      setUploadError(err.message || 'There was an error creating your campaign. Please ensure your "campaign-images" bucket exists in Supabase Storage.');
+      console.error('[HEARTFUND] Launch failed:', err);
+      // Specifically check for RLS policy errors
+      if (err.message?.includes('Security Policy') || err.code === '42501') {
+        setUploadError('Security Policy Violation: Your database is blocking the insert. Please run the RLS policies SQL in the Supabase SQL Editor.');
+      } else {
+        setUploadError(err.message || 'The database rejected your campaign. Check your browser console.');
+      }
     } finally {
       setIsSubmitting(false);
       setUploadProgress('');
@@ -117,9 +116,16 @@ const CreateCampaignPage: React.FC = () => {
         </div>
 
         {uploadError && (
-          <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl flex items-center gap-3 animate-bounce">
-            <svg className="w-6 h-6 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          <div className="mb-8 p-6 bg-red-50 border-2 border-red-500 rounded-2xl flex flex-col gap-2 animate-pulse">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <p className="text-md text-red-800 font-black uppercase tracking-tight">Launch Blocked</p>
+            </div>
             <p className="text-sm text-red-700 font-bold">{uploadError}</p>
+            <div className="mt-4 p-3 bg-white/50 rounded-lg text-[10px] font-mono text-red-400">
+              Run this in Supabase SQL Editor:<br/>
+              CREATE POLICY "Allow Insert" ON campaigns FOR INSERT TO authenticated WITH CHECK (auth.uid() = creatorId);
+            </div>
           </div>
         )}
 
@@ -146,32 +152,22 @@ const CreateCampaignPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Evidence Upload Section */}
           <div className="space-y-6">
             <h3 className="text-lg font-bold text-primary border-b pb-2 flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               Verification & Evidence
             </h3>
-            <p className="text-sm text-gray-500">Donors are more likely to contribute if they see real proof. Images are stored securely.</p>
             
             {!isSubmitting && (
               <div 
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center hover:border-primary hover:bg-blue-50 transition-all cursor-pointer group"
               >
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageUpload} 
-                  className="hidden" 
-                  multiple 
-                  accept="image/*" 
-                />
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" multiple accept="image/*" />
                 <div className="bg-primary/5 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                   <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                 </div>
                 <p className="font-bold text-neutral">Click to upload evidence photos</p>
-                <p className="text-xs text-gray-400 mt-1">Up to 5 images (JPG, PNG)</p>
               </div>
             )}
 
@@ -181,11 +177,7 @@ const CreateCampaignPage: React.FC = () => {
                   <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-100 shadow-sm">
                     <img src={url} alt="Proof preview" className="w-full h-full object-cover" />
                     {!isSubmitting && (
-                      <button 
-                        type="button"
-                        onClick={() => removeImage(idx)}
-                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                      >
+                      <button type="button" onClick={() => removeImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
@@ -206,13 +198,10 @@ const CreateCampaignPage: React.FC = () => {
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  {uploadProgress || 'Launching...'}
+                  {uploadProgress || 'Processing...'}
                 </span>
               ) : 'Launch Campaign Now'}
             </Button>
-            <p className="text-center text-xs text-gray-400 mt-4 italic">
-              By clicking "Launch", you agree that all provided evidence is true and genuine.
-            </p>
           </div>
         </form>
       </div>

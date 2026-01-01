@@ -23,19 +23,49 @@ export const storage = {
     return data as Campaign[];
   },
 
-  saveCampaign: async (campaign: Campaign) => {
-    // Ensure the payload matches the database schema
-    const { error } = await supabase
+  /**
+   * Saves a new campaign. 
+   * CRITICAL: 'creatorId' must match auth.uid() for Row Level Security to pass.
+   */
+  saveCampaign: async (campaign: Omit<Campaign, 'id'>): Promise<Campaign> => {
+    // 1. Double check current session to ensure IDs match
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.user) {
+      throw new Error('You must be logged in to create a campaign.');
+    }
+
+    // Ensure the creatorId in the payload is exactly the auth UID
+    const payload = {
+      ...campaign,
+      creatorId: session.user.id, // Hard-enforce the ID for RLS
+      createdAt: new Date().toISOString()
+    };
+
+    console.log('[HEARTFUND] Saving campaign payload:', payload);
+
+    const { data, error } = await supabase
       .from('campaigns')
-      .insert([{
-        ...campaign,
-        createdAt: new Date().toISOString()
-      }]);
+      .insert([payload])
+      .select()
+      .single();
 
     if (error) {
-      console.error('Database Error saving campaign:', error);
+      console.error('[HEARTFUND DATABASE ERROR]', error);
+      
+      if (error.code === '42501') {
+        throw new Error('Security Policy Error: Your database is blocking this insert. Please run the RLS policies SQL provided in the instructions.');
+      }
+      
+      if (error.message.includes('column "imageUrls"')) {
+        throw new Error('Database Schema Error: The "imageUrls" column is missing. Please add it to your table as type text[].');
+      }
+
       throw error;
     }
+
+    console.log('[HEARTFUND] Campaign created successfully:', data.id);
+    return data as Campaign;
   },
 
   updateDonation: async (campaignId: string, amount: number) => {
@@ -66,21 +96,14 @@ export const storage = {
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `campaigns/${fileName}`;
 
-      console.log(`[HEARTFUND] Attempting upload to bucket 'campaign-images': ${filePath}`);
-
-      // Ensure bucket exists in Supabase Dashboard -> Storage
       const { error: uploadError } = await supabase.storage
         .from('campaign-images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+        .upload(filePath, file);
 
       if (uploadError) {
         console.error('[HEARTFUND STORAGE ERROR]', uploadError);
-        // Helpful debugging for the user
         if (uploadError.message.includes('not found')) {
-          throw new Error('Storage bucket "campaign-images" not found. Go to Supabase > Storage and create it.');
+          throw new Error('Bucket "campaign-images" not found. Create it in Supabase > Storage.');
         }
         throw uploadError;
       }
@@ -89,14 +112,9 @@ export const storage = {
         .from('campaign-images')
         .getPublicUrl(filePath);
 
-      if (!urlData.publicUrl) {
-        throw new Error('Failed to retrieve public URL for uploaded image.');
-      }
-
-      console.log(`[HEARTFUND] Upload successful. Public URL: ${urlData.publicUrl}`);
       return urlData.publicUrl;
     } catch (err: any) {
-      console.error('[HEARTFUND] Image upload process failed:', err.message);
+      console.error('[HEARTFUND] Image upload failed:', err.message);
       throw err;
     }
   },
@@ -106,30 +124,19 @@ export const storage = {
   getGlobalRecentDonations: async (limit: number = 5): Promise<any[]> => {
     const { data, error } = await supabase
       .from('donations')
-      .select(`
-        *,
-        profiles (
-          name
-        )
-      `)
+      .select(`*, profiles(name)`)
       .order('date', { ascending: false })
       .limit(limit);
 
-    if (error) {
-      console.error('Error fetching global donations:', error);
-      return [];
-    }
+    if (error) return [];
     return data || [];
   },
 
   // --- USER PROFILE & AUTH ---
 
   setCurrentUser: (user: User | null) => {
-    if (user) {
-      localStorage.setItem('heartfund_current_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('heartfund_current_user');
-    }
+    if (user) localStorage.setItem('heartfund_current_user', JSON.stringify(user));
+    else localStorage.removeItem('heartfund_current_user');
   },
 
   getCurrentUser: (): User | null => {
@@ -159,34 +166,34 @@ export const storage = {
   },
 
   addDonationToHistory: async (userId: string, record: DonationRecord) => {
-    const { error } = await supabase
-      .from('donations')
-      .insert([{
-        userId: userId,
-        campaignId: record.campaignId,
-        campaignTitle: record.campaignTitle,
-        amount: record.amount,
-        transactionId: record.transactionId,
-        date: record.date
-      }]);
-    
-    if (error) throw error;
+    await supabase.from('donations').insert([{
+      userId: userId,
+      campaignId: record.campaignId,
+      campaignTitle: record.campaignTitle,
+      amount: record.amount,
+      transactionId: record.transactionId,
+      date: record.date
+    }]);
   },
 
   addRecentCampaign: async (userId: string, campaignId: string) => {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('recentlyViewedIds')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('recentlyViewedIds')
+        .eq('id', userId)
+        .single();
 
-    const existingIds = profile?.recentlyViewedIds || [];
-    const filtered = existingIds.filter((id: string) => id !== campaignId);
-    const updatedIds = [campaignId, ...filtered].slice(0, 5);
+      const existingIds = profile?.recentlyViewedIds || [];
+      const filtered = existingIds.filter((id: string) => id !== campaignId);
+      const updatedIds = [campaignId, ...filtered].slice(0, 5);
 
-    await supabase
-      .from('profiles')
-      .update({ recentlyViewedIds: updatedIds })
-      .eq('id', userId);
+      await supabase
+        .from('profiles')
+        .update({ recentlyViewedIds: updatedIds })
+        .eq('id', userId);
+    } catch (e) {
+      console.warn('Could not update recently viewed:', e);
+    }
   }
 };

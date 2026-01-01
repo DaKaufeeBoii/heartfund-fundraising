@@ -6,7 +6,7 @@ import { storage } from '../services/storage';
 interface CampaignContextType {
   campaigns: Campaign[];
   isLoading: boolean;
-  addCampaign: (campaign: Campaign) => Promise<void>;
+  addCampaign: (campaign: Omit<Campaign, 'id'>) => Promise<Campaign>;
   updateDonation: (campaignId: string, amount: number) => Promise<void>;
   getCampaignById: (id: string) => Campaign | undefined;
 }
@@ -32,9 +32,10 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({ children }) 
     loadCampaigns();
   }, []);
 
-  const addCampaign = useCallback(async (campaign: Campaign) => {
-    await storage.saveCampaign(campaign);
+  const addCampaign = useCallback(async (campaign: Omit<Campaign, 'id'>) => {
+    const newCampaign = await storage.saveCampaign(campaign);
     await loadCampaigns();
+    return newCampaign;
   }, []);
 
   const updateDonation = useCallback(async (campaignId: string, amount: number) => {
@@ -43,7 +44,8 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({ children }) 
   }, []);
   
   const getCampaignById = useCallback((id: string) => {
-    return campaigns.find(c => c.id === id);
+    // Note: Comparing strings as database IDs might be numeric or strings
+    return campaigns.find(c => String(c.id) === String(id));
   }, [campaigns]);
 
   const campaignValue = useMemo(() => ({
