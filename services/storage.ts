@@ -1,5 +1,5 @@
 
-import { Campaign, User, DonationRecord, UserHistory } from '../types';
+import { campaigns, User, DonationRecord, UserHistory } from '../types';
 import { supabase } from './supabase';
 
 /**
@@ -8,45 +8,45 @@ import { supabase } from './supabase';
  */
 
 export const storage = {
-  // --- CAMPAIGN QUERIES ---
+  // --- campaigns QUERIES ---
   
-  getCampaigns: async (): Promise<Campaign[]> => {
+  getcampaignss: async (): Promise<campaigns[]> => {
     const { data, error } = await supabase
-      .from('campaigns')
+      .from('campaignss')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching campaigns:', error);
+      console.error('Error fetching campaignss:', error);
       return [];
     }
-    return data as Campaign[];
+    return data as campaigns[];
   },
 
   /**
-   * Saves a new campaign. 
+   * Saves a new campaigns. 
    * CRITICAL: 'creatorId' must match auth.uid() for Row Level Security to pass.
    */
-  saveCampaign: async (campaign: Omit<Campaign, 'id'>): Promise<Campaign> => {
+  savecampaigns: async (campaigns: Omit<campaigns, 'id'>): Promise<campaigns> => {
     // 1. Double check current session to ensure IDs match
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.user) {
-      throw new Error('You must be logged in to create a campaign.');
+      throw new Error('You must be logged in to create a campaigns.');
     }
 
     // Ensure the payload strictly matches what the UI provides and what DB expects.
     // Use "created_at" (camelCase) to match the SQL column we created with quotes.
     const payload = {
-      title: campaign.title,
-      description: campaign.description,
-      longDescription: campaign.longDescription,
-      goalAmount: campaign.goalAmount,
-      category: campaign.category,
-      endDate: campaign.endDate,
-      creator: campaign.creator,
-      creatorAvatar: campaign.creatorAvatar,
-      imageUrls: campaign.imageUrls,
+      title: campaigns.title,
+      description: campaigns.description,
+      longDescription: campaigns.longDescription,
+      goalAmount: campaigns.goalAmount,
+      category: campaigns.category,
+      endDate: campaigns.endDate,
+      creator: campaigns.creator,
+      creator_avatar: campaigns.creator_avatar,
+      imageUrls: campaigns.imageUrls,
       currentAmount: 0,
       donors: 0,
       creatorId: session.user.id, 
@@ -56,7 +56,7 @@ export const storage = {
     console.log('[HEARTFUND] Final Insert Payload:', payload);
 
     const { data, error } = await supabase
-      .from('campaigns')
+      .from('campaignss')
       .insert([payload])
       .select()
       .single();
@@ -69,8 +69,8 @@ export const storage = {
         throw new Error('Database Schema Error: The "created_at" column is missing or incorrectly named. Please run the provided SQL in your Supabase SQL Editor.');
       }
       
-      if (error.message.includes('creatorAvatar')) {
-        throw new Error('Database Schema Error: The "creatorAvatar" column is missing.');
+      if (error.message.includes('creator_avatar')) {
+        throw new Error('Database Schema Error: The "creator_avatar" column is missing.');
       }
 
       if (error.code === '42501') {
@@ -80,25 +80,25 @@ export const storage = {
       throw error;
     }
 
-    console.log('[HEARTFUND] Campaign successfully launched:', data.id);
-    return data as Campaign;
+    console.log('[HEARTFUND] campaigns successfully launched:', data.id);
+    return data as campaigns;
   },
 
-  updateDonation: async (campaignId: string, amount: number) => {
-    const { data: campaign } = await supabase
-      .from('campaigns')
+  updateDonation: async (campaignsId: string, amount: number) => {
+    const { data: campaigns } = await supabase
+      .from('campaignss')
       .select('currentAmount, donors')
-      .eq('id', campaignId)
+      .eq('id', campaignsId)
       .single();
 
-    if (campaign) {
+    if (campaigns) {
       const { error } = await supabase
-        .from('campaigns')
+        .from('campaignss')
         .update({ 
-          currentAmount: (campaign.currentAmount || 0) + amount,
-          donors: (campaign.donors || 0) + 1 
+          currentAmount: (campaigns.currentAmount || 0) + amount,
+          donors: (campaigns.donors || 0) + 1 
         })
-        .eq('id', campaignId);
+        .eq('id', campaignsId);
       
       if (error) throw error;
     }
@@ -110,10 +110,10 @@ export const storage = {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = `campaigns/${fileName}`;
+      const filePath = `campaignss/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('campaign-images')
+        .from('campaigns-images')
         .upload(filePath, file);
 
       if (uploadError) {
@@ -122,7 +122,7 @@ export const storage = {
       }
 
       const { data: urlData } = supabase.storage
-        .from('campaign-images')
+        .from('campaigns-images')
         .getPublicUrl(filePath);
 
       return urlData.publicUrl;
@@ -181,15 +181,15 @@ export const storage = {
   addDonationToHistory: async (userId: string, record: DonationRecord) => {
     await supabase.from('donations').insert([{
       userId: userId,
-      campaignId: record.campaignId,
-      campaignTitle: record.campaignTitle,
+      campaignsId: record.campaignsId,
+      campaignsTitle: record.campaignsTitle,
       amount: record.amount,
       transactionId: record.transactionId,
       date: record.date
     }]);
   },
 
-  addRecentCampaign: async (userId: string, campaignId: string) => {
+  addRecentcampaigns: async (userId: string, campaignsId: string) => {
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -198,8 +198,8 @@ export const storage = {
         .single();
 
       const existingIds = profile?.recentlyViewedIds || [];
-      const filtered = existingIds.filter((id: string) => id !== campaignId);
-      const updatedIds = [campaignId, ...filtered].slice(0, 5);
+      const filtered = existingIds.filter((id: string) => id !== campaignsId);
+      const updatedIds = [campaignsId, ...filtered].slice(0, 5);
 
       await supabase
         .from('profiles')
