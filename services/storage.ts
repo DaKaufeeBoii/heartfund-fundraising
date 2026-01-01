@@ -35,14 +35,24 @@ export const storage = {
       throw new Error('You must be logged in to create a campaign.');
     }
 
-    // Ensure the creatorId in the payload is exactly the auth UID
+    // Ensure the payload strictly matches what the UI provides and what DB expects
     const payload = {
-      ...campaign,
+      title: campaign.title,
+      description: campaign.description,
+      longDescription: campaign.longDescription,
+      goalAmount: campaign.goalAmount,
+      category: campaign.category,
+      endDate: campaign.endDate,
+      creator: campaign.creator,
+      creatorAvatar: campaign.creatorAvatar,
+      imageUrls: campaign.imageUrls,
+      currentAmount: 0,
+      donors: 0,
       creatorId: session.user.id, // Hard-enforce the ID for RLS
       createdat: new Date().toISOString()
     };
 
-    console.log('[HEARTFUND] Saving campaign payload:', payload);
+    console.log('[HEARTFUND] Attempting Insert:', payload);
 
     const { data, error } = await supabase
       .from('campaigns')
@@ -53,12 +63,17 @@ export const storage = {
     if (error) {
       console.error('[HEARTFUND DATABASE ERROR]', error);
       
-      if (error.code === '42501') {
-        throw new Error('Security Policy Error: Your database is blocking this insert. Please run the RLS policies SQL provided in the instructions.');
+      // Map cryptic Postgres errors to helpful human messages
+      if (error.message.includes('column "creatorAvatar" does not exist')) {
+        throw new Error('Database Schema Error: The "creatorAvatar" column is missing. Run the ALTER TABLE SQL provided.');
       }
       
-      if (error.message.includes('column "imageUrls"')) {
-        throw new Error('Database Schema Error: The "imageUrls" column is missing. Please add it to your table as type text[].');
+      if (error.message.includes('column "imageUrls" does not exist')) {
+        throw new Error('Database Schema Error: The "imageUrls" column is missing. Ensure it is type text[] (array).');
+      }
+
+      if (error.code === '42501') {
+        throw new Error('Security Policy Error: Your RLS policies are blocking the save. Ensure you have an INSERT policy for authenticated users.');
       }
 
       throw error;
