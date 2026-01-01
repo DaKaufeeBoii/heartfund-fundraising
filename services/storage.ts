@@ -14,7 +14,7 @@ export const storage = {
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('createdAt', { ascending: false });
 
     if (error) {
       console.error('Error fetching campaigns:', error);
@@ -32,8 +32,7 @@ export const storage = {
   },
 
   updateDonation: async (campaignId: string, amount: number) => {
-    // Note: In a production app, use a RPC (Database Function) to prevent race conditions
-    // This simple approach fetches then updates
+    // Note: In production, consider using a database function (RPC) for atomicity
     const { data: campaign } = await supabase
       .from('campaigns')
       .select('currentAmount, donors')
@@ -44,8 +43,8 @@ export const storage = {
       const { error } = await supabase
         .from('campaigns')
         .update({ 
-          currentAmount: campaign.currentAmount + amount,
-          donors: campaign.donors + 1 
+          currentAmount: (campaign.currentAmount || 0) + amount,
+          donors: (campaign.donors || 0) + 1 
         })
         .eq('id', campaignId);
       
@@ -56,7 +55,6 @@ export const storage = {
   // --- USER PROFILE & AUTH ---
 
   setCurrentUser: (user: User | null) => {
-    // Auth state is managed by Supabase Auth, but we can cache the profile in memory
     if (user) {
       localStorage.setItem('heartfund_current_user', JSON.stringify(user));
     } else {
@@ -72,23 +70,21 @@ export const storage = {
   // --- IMPACT & HISTORY ---
 
   getUserHistory: async (userId: string): Promise<UserHistory> => {
-    // Fetch donations from the 'donations' table
-    const { data: donations, error: dError } = await supabase
+    const { data: donations } = await supabase
       .from('donations')
       .select('*')
-      .eq('user_id', userId)
+      .eq('userId', userId)
       .order('date', { ascending: false });
 
-    // Fetch recently viewed from 'user_profiles'
-    const { data: profile, error: pError } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('recently_viewed_ids')
+      .select('recentlyViewedIds')
       .eq('id', userId)
       .single();
 
     return {
       donations: (donations || []) as DonationRecord[],
-      recentlyViewedIds: profile?.recently_viewed_ids || []
+      recentlyViewedIds: profile?.recentlyViewedIds || []
     };
   },
 
@@ -96,11 +92,11 @@ export const storage = {
     const { error } = await supabase
       .from('donations')
       .insert([{
-        user_id: userId,
-        campaign_id: record.campaignId,
-        campaign_title: record.campaignTitle,
+        userId: userId,
+        campaignId: record.campaignId,
+        campaignTitle: record.campaignTitle,
         amount: record.amount,
-        transaction_id: record.transactionId,
+        transactionId: record.transactionId,
         date: record.date
       }]);
     
@@ -108,20 +104,19 @@ export const storage = {
   },
 
   addRecentCampaign: async (userId: string, campaignId: string) => {
-    // Get existing list
     const { data: profile } = await supabase
       .from('profiles')
-      .select('recently_viewed_ids')
+      .select('recentlyViewedIds')
       .eq('id', userId)
       .single();
 
-    const existingIds = profile?.recently_viewed_ids || [];
+    const existingIds = profile?.recentlyViewedIds || [];
     const filtered = existingIds.filter((id: string) => id !== campaignId);
     const updatedIds = [campaignId, ...filtered].slice(0, 5);
 
     await supabase
       .from('profiles')
-      .update({ recently_viewed_ids: updatedIds })
+      .update({ recentlyViewedIds: updatedIds })
       .eq('id', userId);
   }
 };
