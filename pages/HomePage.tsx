@@ -59,7 +59,7 @@ const HomePage: React.FC = () => {
                 </Button>
               </Link>
               <Link to="/create">
-                <Button variant="primary" size="lg" className="w-full sm:w-auto py-5 px-10 text-xl bg-white text-primary hover:bg-blue-50 border-none shadow-xl shadow-blue-900/20">
+                <Button variant="secondary" size="lg" className="w-full sm:w-auto py-5 px-10 text-xl shadow-xl shadow-red-900/20">
                   Start Fundraising
                 </Button>
               </Link>
@@ -206,7 +206,7 @@ const HomePage: React.FC = () => {
               )}
             </div>
             
-            <div className="mt-10 text-center">
+            <div className="mwhyt-10 text-center">
               <p className="text-sm text-gray-400 font-medium">
                 Every contribution matters. Join the feed by supporting a cause.
               </p>

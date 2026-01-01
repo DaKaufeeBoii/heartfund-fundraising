@@ -51,6 +51,30 @@ export const storage = {
     }
   },
 
+  // --- IMAGE STORAGE ---
+
+  uploadImage: async (file: File): Promise<string> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+    const filePath = `campaigns/${fileName}`;
+
+    // Note: This requires a bucket named 'campaign-images' to exist in your Supabase project
+    const { error: uploadError } = await supabase.storage
+      .from('campaign-images')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      throw new Error('Failed to upload image to storage.');
+    }
+
+    const { data } = supabase.storage
+      .from('campaign-images')
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  },
+
   // --- GLOBAL ACTIVITY ---
 
   getGlobalRecentDonations: async (limit: number = 5): Promise<any[]> => {

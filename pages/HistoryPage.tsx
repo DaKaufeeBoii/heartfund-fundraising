@@ -1,30 +1,61 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useCampaigns } from '../hooks/useCampaigns';
 import { storage } from '../services/storage';
 import Container from '../components/Container';
 import CampaignCard from '../components/CampaignCard';
+import type { UserHistory } from '../types';
 
 const HistoryPage: React.FC = () => {
   const { user } = useAuth();
   const { getCampaignById } = useCampaigns();
 
-  const history = useMemo(() => {
-    return user ? storage.getUserHistory(user.id) : { donations: [], recentlyViewedIds: [] };
+  // Fix: storage.getUserHistory is an asynchronous function returning a Promise.
+  // We must fetch this data inside a useEffect and store it in state to handle the loading lifecycle correctly.
+  const [history, setHistory] = useState<UserHistory>({ donations: [], recentlyViewedIds: [] });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (user) {
+        setIsLoading(true);
+        try {
+          const data = await storage.getUserHistory(user.id);
+          setHistory(data);
+        } catch (error) {
+          console.error("Failed to fetch user history:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    fetchHistory();
   }, [user]);
 
   const recentlyViewed = useMemo(() => {
+    // history.recentlyViewedIds is now safely accessed from state
     return history.recentlyViewedIds
       .map(id => getCampaignById(id))
       .filter((c): c is any => !!c);
   }, [history.recentlyViewedIds, getCampaignById]);
 
   const totalDonated = useMemo(() => {
+    // history.donations is now safely accessed from state
     return history.donations.reduce((sum, d) => sum + d.amount, 0);
   }, [history.donations]);
 
   if (!user) return null;
+
+  // Render a loading state while fetching asynchronous history data
+  if (isLoading) {
+    return (
+      <Container className="py-24 text-center">
+        <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Loading Impact Data...</p>
+      </Container>
+    );
+  }
 
   return (
     <Container className="py-12">

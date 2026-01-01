@@ -13,6 +13,7 @@ const RegisterPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -24,7 +25,9 @@ const RegisterPage: React.FC = () => {
     try {
       const result = await register(name, email, password);
       if (result.success) {
-        navigate('/browse');
+        // Most Supabase projects have email confirmation enabled by default.
+        // We set a flag to show a "Check your email" message instead of redirecting immediately.
+        setNeedsConfirmation(true);
       } else {
         setError(result.error || 'Registration failed. Try again.');
       }
@@ -35,9 +38,34 @@ const RegisterPage: React.FC = () => {
     }
   };
 
+  if (needsConfirmation) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-6 bg-gray-50">
+        <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl text-center border border-gray-100">
+          <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-3xl font-black text-neutral mb-4">Confirm Your Email</h2>
+          <p className="text-gray-500 font-medium mb-8">
+            We've sent a magic link to <span className="text-primary font-bold">{email}</span>. 
+            Please check your inbox (and spam folder) to activate your account.
+          </p>
+          <Link to="/login">
+            <Button variant="primary" className="w-full">Return to Login</Button>
+          </Link>
+          <p className="mt-6 text-xs text-gray-400">
+            Didn't receive it? Check your Supabase project settings to see if email confirmation is required.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col lg:flex-row-reverse bg-white">
-      {/* Left Side: Visual/Branding (Reversed for visual variety) */}
+      {/* Left Side: Visual/Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-neutral relative items-center justify-center p-12 overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <img 
