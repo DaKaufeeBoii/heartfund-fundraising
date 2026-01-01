@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCampaigns } from '../hooks/useCampaigns';
+import { storage } from '../services/storage';
 import CampaignCard from '../components/CampaignCard';
 import Container from '../components/Container';
 import Button from '../components/Button';
@@ -9,7 +10,19 @@ import { HeartIcon } from '../components/Icons';
 
 const HomePage: React.FC = () => {
   const { campaigns } = useCampaigns();
+  const [recentDonations, setRecentDonations] = useState<any[]>([]);
   const featuredCampaigns = campaigns.slice(0, 3);
+
+  useEffect(() => {
+    const fetchActivity = async () => {
+      const activity = await storage.getGlobalRecentDonations(5);
+      setRecentDonations(activity);
+    };
+    fetchActivity();
+    // Poll for updates every 30 seconds for a "live" feel
+    const interval = setInterval(fetchActivity, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="bg-white overflow-hidden">
@@ -51,27 +64,8 @@ const HomePage: React.FC = () => {
                 </Button>
               </Link>
             </div>
-            
-            <div className="mt-12 flex items-center gap-6">
-              <div className="flex -space-x-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <img 
-                    key={i} 
-                    className="w-10 h-10 rounded-full border-2 border-primary object-cover" 
-                    src={`https://i.pravatar.cc/150?u=${i + 10}`} 
-                    alt="User" 
-                  />
-                ))}
-              </div>
-              <p className="text-sm text-blue-200 font-medium">
-                <span className="text-white font-bold">12k+</span> donors active today
-              </p>
-            </div>
           </div>
         </Container>
-        
-        {/* Decorative elements */}
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-secondary/20 rounded-full blur-3xl"></div>
       </section>
 
       {/* Trust Stats Section */}
@@ -110,7 +104,7 @@ const HomePage: React.FC = () => {
             </div>
             <Link to="/browse">
               <Button variant="primary" className="bg-gray-100 text-primary border-none hover:bg-gray-200">
-                Browse All 2,400+
+                Browse All
               </Button>
             </Link>
           </div>
@@ -125,17 +119,6 @@ const HomePage: React.FC = () => {
 
       {/* How it Works Section */}
       <section className="py-24 bg-neutral text-white relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
-          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1"/>
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
-        
         <Container className="relative z-10">
           <div className="text-center max-w-2xl mx-auto mb-20">
             <h2 className="text-4xl font-black tracking-tighter mb-4">How HeartFund Works</h2>
@@ -164,13 +147,78 @@ const HomePage: React.FC = () => {
         </Container>
       </section>
 
+      {/* NEW: Recent Impact Feed Section */}
+      <section className="py-24 bg-gray-50 relative overflow-hidden">
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+        <Container>
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center gap-4 mb-12">
+              <div className="p-3 bg-secondary/10 rounded-2xl">
+                <HeartIcon className="w-8 h-8 text-secondary animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black text-neutral tracking-tight">Community Heartbeat</h2>
+                <p className="text-gray-500 font-medium">Real-time impact from donors just like you.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {recentDonations.length > 0 ? (
+                recentDonations.map((donation, idx) => (
+                  <div 
+                    key={donation.id || idx} 
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-100 transition-all group animate-in slide-in-from-bottom-4"
+                    style={{ animationDelay: `${idx * 100}ms` }}
+                  >
+                    <div className="flex items-center gap-4 mb-4 sm:mb-0">
+                      <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-primary font-black text-xl">
+                        {(donation.profiles?.name || 'A')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-neutral font-black">
+                          {donation.profiles?.name || 'Anonymous'}
+                        </p>
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+                          donated to <Link to={`/campaign/${donation.campaignId}`} className="text-primary hover:underline">{donation.campaignTitle}</Link>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between sm:justify-end gap-6">
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-secondary">${donation.amount.toLocaleString()}</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                          {new Date(donation.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="h-8 w-px bg-gray-100 hidden sm:block"></div>
+                      <Link to={`/campaign/${donation.campaignId}`}>
+                        <Button variant="primary" size="sm" className="bg-primary/5 text-primary hover:bg-primary hover:text-white border-none shadow-none">
+                          View Cause
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-200">
+                  <p className="text-gray-400 font-medium italic">Waiting for new heartbeats...</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-10 text-center">
+              <p className="text-sm text-gray-400 font-medium">
+                Every contribution matters. Join the feed by supporting a cause.
+              </p>
+            </div>
+          </div>
+        </Container>
+      </section>
+
       {/* Bottom CTA */}
       <section className="py-24">
         <Container>
           <div className="bg-primary rounded-[3rem] p-12 md:p-24 text-center text-white relative overflow-hidden shadow-2xl shadow-blue-200">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-secondary opacity-20 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent opacity-10 rounded-full -ml-32 -mb-32 blur-3xl"></div>
-            
             <div className="relative z-10 max-w-3xl mx-auto">
               <HeartIcon className="w-16 h-16 text-secondary mx-auto mb-8 animate-pulse" />
               <h2 className="text-4xl md:text-6xl font-black tracking-tighter mb-8 leading-tight">
@@ -184,9 +232,6 @@ const HomePage: React.FC = () => {
                   Join the Movement
                 </Button>
               </Link>
-              <p className="mt-8 text-xs text-blue-200/60 font-bold uppercase tracking-widest">
-                No monthly fees • Transparent Reporting • 24/7 Support
-              </p>
             </div>
           </div>
         </Container>

@@ -32,7 +32,6 @@ export const storage = {
   },
 
   updateDonation: async (campaignId: string, amount: number) => {
-    // Note: In production, consider using a database function (RPC) for atomicity
     const { data: campaign } = await supabase
       .from('campaigns')
       .select('currentAmount, donors')
@@ -50,6 +49,27 @@ export const storage = {
       
       if (error) throw error;
     }
+  },
+
+  // --- GLOBAL ACTIVITY ---
+
+  getGlobalRecentDonations: async (limit: number = 5): Promise<any[]> => {
+    const { data, error } = await supabase
+      .from('donations')
+      .select(`
+        *,
+        profiles (
+          name
+        )
+      `)
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching global donations:', error);
+      return [];
+    }
+    return data || [];
   },
 
   // --- USER PROFILE & AUTH ---
