@@ -1,12 +1,15 @@
 
+
 export interface Campaign {
   id: string;
   title: string;
   creator: string;
+  // Unique identifier for the campaign creator
+  creatorId: string;
   creatorAvatar: string;
   description: string;
   longDescription: string;
-  imageUrl: string;
+  imageUrls: string[]; // Changed from imageUrl: string
   goalAmount: number;
   currentAmount: number;
   donors: number;
