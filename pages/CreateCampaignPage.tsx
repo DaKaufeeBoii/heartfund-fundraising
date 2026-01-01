@@ -26,6 +26,7 @@ const CreateCampaignPage: React.FC = () => {
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -36,8 +37,13 @@ const CreateCampaignPage: React.FC = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
+      setUploadError(null);
       const selectedFiles = Array.from(files);
       const newFiles = [...imageFiles, ...selectedFiles].slice(0, 5);
+      
+      // Revoke old object URLs to prevent memory leaks
+      previewUrls.forEach(url => URL.revokeObjectURL(url));
+      
       const newUrls = newFiles.map(file => URL.createObjectURL(file));
       
       setImageFiles(newFiles);
@@ -46,6 +52,7 @@ const CreateCampaignPage: React.FC = () => {
   };
 
   const removeImage = (index: number) => {
+    URL.revokeObjectURL(previewUrls[index]);
     setImageFiles(prev => prev.filter((_, i) => i !== index));
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
@@ -55,24 +62,25 @@ const CreateCampaignPage: React.FC = () => {
     if (!user) return;
 
     setIsSubmitting(true);
+    setUploadError(null);
     let finalImageUrls: string[] = [];
 
     try {
       // 1. Upload images to Supabase Storage sequentially
       if (imageFiles.length > 0) {
         for (let i = 0; i < imageFiles.length; i++) {
-          setUploadProgress(`Uploading image ${i + 1} of ${imageFiles.length}...`);
+          setUploadProgress(`Uploading evidence ${i + 1} of ${imageFiles.length}...`);
           const publicUrl = await storage.uploadImage(imageFiles[i]);
           finalImageUrls.push(publicUrl);
         }
       } else {
-        // Fallback placeholder
+        // Fallback placeholder if no image provided
         finalImageUrls = [`https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?w=800&h=500&fit=crop`];
       }
 
       setUploadProgress('Finalizing campaign details...');
 
-      // 2. Save campaign record to database
+      // 2. Save campaign record to database with public storage URLs
       const newCampaign = {
           id: String(Date.now()),
           title,
@@ -91,9 +99,9 @@ const CreateCampaignPage: React.FC = () => {
 
       await addCampaign(newCampaign);
       navigate(`/campaign/${newCampaign.id}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to launch campaign:', err);
-      alert('There was an error creating your campaign. Please try again.');
+      setUploadError(err.message || 'There was an error creating your campaign. Please ensure your "campaign-images" bucket exists in Supabase Storage.');
     } finally {
       setIsSubmitting(false);
       setUploadProgress('');
@@ -107,6 +115,13 @@ const CreateCampaignPage: React.FC = () => {
           <h1 className="text-4xl font-black text-neutral tracking-tight">Start Your Fundraiser</h1>
           <p className="mt-3 text-gray-500 font-medium">Be the change you want to see. Authentic stories win hearts.</p>
         </div>
+
+        {uploadError && (
+          <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl flex items-center gap-3 animate-bounce">
+            <svg className="w-6 h-6 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <p className="text-sm text-red-700 font-bold">{uploadError}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div className="space-y-6">
@@ -137,7 +152,7 @@ const CreateCampaignPage: React.FC = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               Verification & Evidence
             </h3>
-            <p className="text-sm text-gray-500">Donors are 80% more likely to contribute if they see real proof. Images are stored securely.</p>
+            <p className="text-sm text-gray-500">Donors are more likely to contribute if they see real proof. Images are stored securely.</p>
             
             {!isSubmitting && (
               <div 
@@ -169,7 +184,7 @@ const CreateCampaignPage: React.FC = () => {
                       <button 
                         type="button"
                         onClick={() => removeImage(idx)}
-                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
@@ -185,7 +200,7 @@ const CreateCampaignPage: React.FC = () => {
               type="submit" 
               variant="secondary" 
               size="lg" 
-              className="w-full py-5 text-xl shadow-2xl shadow-red-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-5 text-xl shadow-[0_20px_40px_rgba(220,38,38,0.2)] bg-secondary hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed border-none transform transition-all duration-300"
               disabled={isSubmitting}
             >
               {isSubmitting ? (

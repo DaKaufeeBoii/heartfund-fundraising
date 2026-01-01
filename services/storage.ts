@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 
 /**
  * STORAGE SERVICE (Supabase Implementation)
- * This service handles all interactions with the PostgreSQL database.
+ * This service handles all interactions with the PostgreSQL database and Storage buckets.
  */
 
 export const storage = {
@@ -14,7 +14,7 @@ export const storage = {
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
-      .order('createdAt', { ascending: false });
+      .order('id', { ascending: false });
 
     if (error) {
       console.error('Error fetching campaigns:', error);
@@ -24,11 +24,18 @@ export const storage = {
   },
 
   saveCampaign: async (campaign: Campaign) => {
+    // Ensure the payload matches the database schema
     const { error } = await supabase
       .from('campaigns')
-      .insert([campaign]);
+      .insert([{
+        ...campaign,
+        createdAt: new Date().toISOString()
+      }]);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database Error saving campaign:', error);
+      throw error;
+    }
   },
 
   updateDonation: async (campaignId: string, amount: number) => {
@@ -54,25 +61,44 @@ export const storage = {
   // --- IMAGE STORAGE ---
 
   uploadImage: async (file: File): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const filePath = `campaigns/${fileName}`;
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `campaigns/${fileName}`;
 
-    // Note: This requires a bucket named 'campaign-images' to exist in your Supabase project
-    const { error: uploadError } = await supabase.storage
-      .from('campaign-images')
-      .upload(filePath, file);
+      console.log(`[HEARTFUND] Attempting upload to bucket 'campaign-images': ${filePath}`);
 
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw new Error('Failed to upload image to storage.');
+      // Ensure bucket exists in Supabase Dashboard -> Storage
+      const { error: uploadError } = await supabase.storage
+        .from('campaign-images')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('[HEARTFUND STORAGE ERROR]', uploadError);
+        // Helpful debugging for the user
+        if (uploadError.message.includes('not found')) {
+          throw new Error('Storage bucket "campaign-images" not found. Go to Supabase > Storage and create it.');
+        }
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('campaign-images')
+        .getPublicUrl(filePath);
+
+      if (!urlData.publicUrl) {
+        throw new Error('Failed to retrieve public URL for uploaded image.');
+      }
+
+      console.log(`[HEARTFUND] Upload successful. Public URL: ${urlData.publicUrl}`);
+      return urlData.publicUrl;
+    } catch (err: any) {
+      console.error('[HEARTFUND] Image upload process failed:', err.message);
+      throw err;
     }
-
-    const { data } = supabase.storage
-      .from('campaign-images')
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
   },
 
   // --- GLOBAL ACTIVITY ---

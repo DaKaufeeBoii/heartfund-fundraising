@@ -59,7 +59,11 @@ const HomePage: React.FC = () => {
                 </Button>
               </Link>
               <Link to="/create">
-                <Button variant="secondary" size="lg" className="w-full sm:w-auto py-5 px-10 text-xl shadow-xl shadow-red-900/20">
+                <Button 
+                  variant="secondary" 
+                  size="lg" 
+                  className="w-full sm:w-auto py-5 px-10 text-xl shadow-[0_20px_50px_rgba(220,38,38,0.4)] bg-secondary hover:bg-red-700 hover:scale-105 transform transition-all duration-300 border-none"
+                >
                   Start Fundraising
                 </Button>
               </Link>
@@ -147,7 +151,7 @@ const HomePage: React.FC = () => {
         </Container>
       </section>
 
-      {/* NEW: Recent Impact Feed Section */}
+      {/* Community Heartbeat Feed Section */}
       <section className="py-24 bg-gray-50 relative overflow-hidden">
         <div className="absolute top-1/2 right-0 -translate-y-1/2 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
         <Container>
@@ -206,7 +210,7 @@ const HomePage: React.FC = () => {
               )}
             </div>
             
-            <div className="mwhyt-10 text-center">
+            <div className="mt-10 text-center">
               <p className="text-sm text-gray-400 font-medium">
                 Every contribution matters. Join the feed by supporting a cause.
               </p>
