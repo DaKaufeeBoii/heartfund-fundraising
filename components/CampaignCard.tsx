@@ -9,13 +9,15 @@ interface CampaignCardProps {
 }
 
 const CampaignCard: React.FC<CampaignCardProps> = ({ campaign }) => {
-  const { id, title, description, imageUrls, currentAmount, goalAmount, creator, category } = campaign;
+  const { id, title, description, imageUrls, currentAmount, goalAmount, creator, category, endDate } = campaign;
   const percentage = Math.round((currentAmount / goalAmount) * 100);
   const mainImage = imageUrls && imageUrls.length > 0 ? imageUrls[0] : 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?w=800';
+  
+  const isExpired = new Date(endDate) < new Date();
 
   return (
     <Link to={`/campaign/${id}`} className="block group">
-      <div className="bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-1 transition-all duration-300 h-full flex flex-col">
+      <div className={`bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-1 transition-all duration-300 h-full flex flex-col ${isExpired ? 'opacity-90 grayscale-[0.3]' : ''}`}>
         <div className="relative overflow-hidden aspect-[16/10]">
           <img 
             src={mainImage} 
@@ -23,6 +25,14 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign }) => {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
           />
            <span className="absolute top-2 right-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">{category}</span>
+           
+           {isExpired && (
+             <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4">
+                <div className="bg-secondary text-white text-xs font-black uppercase tracking-widest px-3 py-2 rounded shadow-xl border border-white/20">
+                  Donations Closed
+                </div>
+             </div>
+           )}
         </div>
         <div className="p-4 flex flex-col flex-grow">
           <h3 className="text-lg font-bold text-neutral group-hover:text-primary transition-colors duration-200 line-clamp-1">{title}</h3>

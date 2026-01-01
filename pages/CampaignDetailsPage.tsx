@@ -15,12 +15,23 @@ const CampaignDetailsPage: React.FC = () => {
   const { user } = useAuth();
   
   const campaign = id ? getCampaignById(id) : undefined;
+  const isExpired = campaign ? new Date(campaign.endDate) < new Date() : false;
 
   useEffect(() => {
     if (user && id && campaign) {
       storage.addRecentCampaign(user.id, id);
     }
-  }, [id, user, campaign]);
+    
+    // Security notification for administrators and console blocking message
+    if (isExpired) {
+      console.log(
+        "%c [HEARTFUND SECURITY] %c DISCONTINUED CAMPAIGN DETECTED ",
+        "background: #DC2626; color: white; font-weight: bold; padding: 2px 5px; border-radius: 2px;",
+        "background: #343434; color: #DC2626; font-weight: bold; padding: 2px 5px; border-radius: 2px;"
+      );
+      console.warn(`Attempted access to closed campaign: ${campaign?.title}. Donations are disabled until prior notice.`);
+    }
+  }, [id, user, campaign, isExpired]);
 
   if (!id) {
     return <Navigate to="/browse" />;
@@ -38,15 +49,30 @@ const CampaignDetailsPage: React.FC = () => {
     );
   }
 
-  const { title, creator, creatorAvatar, imageUrls, longDescription, currentAmount, goalAmount, donors, category, endDate } = campaign;
+  const { title, creator, creatorId, creatorAvatar, imageUrls, longDescription, currentAmount, goalAmount, donors, category, endDate } = campaign;
+  const isCreator = user?.id === creatorId;
   const daysLeft = Math.max(0, Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)));
   const percentage = Math.min(Math.round((currentAmount / goalAmount) * 100), 100);
 
   return (
     <div className="bg-white py-12 sm:py-16">
       <Container>
+        {isExpired && (
+          <div className="mb-8 bg-red-50 border-2 border-red-500 p-6 rounded-2xl shadow-xl animate-pulse">
+            <div className="flex items-center gap-4">
+              <div className="bg-red-500 text-white p-2 rounded-full">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+              <div>
+                <h3 className="text-red-800 text-lg font-black uppercase tracking-tighter">Campaign Status: DISCONTINUED</h3>
+                <p className="text-red-700 font-bold">Donations are disabled until prior notice.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">
-          {/* Left Column: Carousel and Details */}
+          {/* Left Column */}
           <div className="lg:col-span-3">
             <div className="mb-8">
               <ImageCarousel images={imageUrls} title={title} />
@@ -63,7 +89,7 @@ const CampaignDetailsPage: React.FC = () => {
                 <img src={creatorAvatar} alt={creator} className="h-12 w-12 rounded-full border-2 border-white shadow-sm" />
                 <div>
                     <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter">Campaign Organized by</p>
-                    <p className="font-bold text-gray-800 text-lg">{creator}</p>
+                    <p className="font-bold text-gray-800 text-lg">{isCreator ? 'You' : creator}</p>
                 </div>
             </div>
 
@@ -71,24 +97,18 @@ const CampaignDetailsPage: React.FC = () => {
               <h3 className="text-xl font-bold text-neutral mb-4">Our Story</h3>
               <p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{longDescription}</p>
             </div>
-
-            {/* Evidence Section Label */}
-            <div className="mt-12 p-6 bg-green-50 rounded-2xl border border-green-100">
-               <div className="flex items-center gap-3 mb-4">
-                 <div className="bg-green-500 p-2 rounded-full text-white">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                 </div>
-                 <h4 className="text-lg font-bold text-green-800 tracking-tight">HeartFund Verified Campaign</h4>
-               </div>
-               <p className="text-green-700 text-sm">
-                 This campaign has provided visual evidence and documentation to verify its authenticity. All photos displayed above were taken on-site by the organizer.
-               </p>
-            </div>
           </div>
 
           {/* Right Column: Donation Card */}
           <div className="lg:col-span-2">
-            <div className="sticky top-24 bg-white p-8 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100">
+            <div className="sticky top-24 bg-white p-8 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-gray-100 overflow-hidden">
+              {isExpired && <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center p-6 text-center">
+                <div className="bg-white p-6 rounded-2xl shadow-2xl border border-red-100">
+                  <p className="text-red-600 font-black uppercase tracking-widest text-xs mb-2">Campaign Inactive</p>
+                  <p className="text-neutral font-bold leading-tight">Donations are disabled until prior notice.</p>
+                </div>
+              </div>}
+              
               <div className="mb-6">
                 <div className="flex justify-between items-end mb-2">
                   <p className="text-4xl font-black text-primary">
@@ -100,25 +120,37 @@ const CampaignDetailsPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="bg-gray-50 py-4 rounded-2xl">
+                <div className="bg-gray-50 py-4 rounded-2xl text-center">
                     <p className="text-xl font-bold text-neutral">{donors}</p>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">donors</p>
                 </div>
-                <div className="bg-gray-50 py-4 rounded-2xl">
-                    <p className="text-xl font-bold text-neutral">{daysLeft}</p>
+                <div className="bg-gray-50 py-4 rounded-2xl text-center">
+                    <p className="text-xl font-bold text-neutral">{isExpired ? 0 : daysLeft}</p>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">days left</p>
                 </div>
-                <div className="bg-gray-50 py-4 rounded-2xl">
+                <div className="bg-gray-50 py-4 rounded-2xl text-center">
                     <p className="text-xl font-bold text-neutral">{percentage}%</p>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">of goal</p>
                 </div>
               </div>
 
-              <Link to={`/campaign/${id}/donate`} className="block">
-                <Button variant="secondary" size="lg" className="w-full py-5 text-xl shadow-xl shadow-red-200 hover:shadow-red-300 transition-all">
-                  Support this Cause
-                </Button>
-              </Link>
+              {!isCreator ? (
+                <Link to={`/campaign/${id}/donate`} className={`block ${isExpired ? 'pointer-events-none' : ''}`}>
+                  <Button 
+                    variant="secondary" 
+                    size="lg" 
+                    className={`w-full py-5 text-xl shadow-xl transition-all ${isExpired ? 'opacity-20 cursor-not-allowed bg-gray-400' : 'shadow-red-200 hover:shadow-red-300'}`}
+                    disabled={isExpired}
+                  >
+                    Support this Cause
+                  </Button>
+                </Link>
+              ) : (
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl text-center">
+                  <p className="text-blue-700 font-bold mb-1">Your Campaign</p>
+                  <p className="text-xs text-blue-600">You are the organizer of this cause.</p>
+                </div>
+              )}
 
               <div className="mt-8 flex items-center justify-center space-x-2 text-gray-400">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>

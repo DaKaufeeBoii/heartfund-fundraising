@@ -1,7 +1,8 @@
 
-
-
 import type { Campaign } from './types';
+
+// Standardized far-future date to ensure pre-made campaigns never expire
+const NEVER_EXPIRE = '2099-12-31T23:59:59Z';
 
 export const MOCK_CAMPAIGNS: Campaign[] = [
   {
@@ -21,7 +22,7 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
     currentAmount: 3400,
     donors: 78,
     category: 'Community',
-    endDate: '2024-12-20',
+    endDate: NEVER_EXPIRE,
   },
   {
     id: '2',
@@ -40,7 +41,7 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
     currentAmount: 19500,
     donors: 250,
     category: 'Health',
-    endDate: '2024-11-15',
+    endDate: NEVER_EXPIRE,
   },
   {
     id: '3',
@@ -59,7 +60,7 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
     currentAmount: 6800,
     donors: 112,
     category: 'Environment',
-    endDate: '2025-03-01',
+    endDate: NEVER_EXPIRE,
   },
   {
     id: '4',
@@ -78,7 +79,7 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
     currentAmount: 25600,
     donors: 198,
     category: 'Arts',
-    endDate: '2025-02-01',
+    endDate: NEVER_EXPIRE,
   },
   {
     id: '5',
@@ -97,7 +98,7 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
     currentAmount: 14800,
     donors: 401,
     category: 'Animals',
-    endDate: '2024-10-10',
+    endDate: NEVER_EXPIRE,
   },
   {
     id: '6',
@@ -116,6 +117,6 @@ export const MOCK_CAMPAIGNS: Campaign[] = [
     currentAmount: 1200,
     donors: 55,
     category: 'Emergency',
-    endDate: '2024-12-31',
+    endDate: NEVER_EXPIRE,
   }
 ];

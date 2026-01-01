@@ -1,11 +1,13 @@
+
 import React, { createContext, useState, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import type { Campaign } from '../types';
 import { storage } from '../services/storage';
 
 interface CampaignContextType {
   campaigns: Campaign[];
-  addCampaign: (campaign: Campaign) => void;
-  updateDonation: (campaignId: string, amount: number) => void;
+  isLoading: boolean;
+  addCampaign: (campaign: Campaign) => Promise<void>;
+  updateDonation: (campaignId: string, amount: number) => Promise<void>;
   getCampaignById: (id: string) => Campaign | undefined;
 }
 
@@ -17,20 +19,27 @@ interface CampaignProviderProps {
 
 export const CampaignProvider: React.FC<CampaignProviderProps> = ({ children }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load campaigns from storage
+  const loadCampaigns = async () => {
+    setIsLoading(true);
+    const data = await storage.getCampaigns();
+    setCampaigns(data);
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    setCampaigns(storage.getCampaigns());
+    loadCampaigns();
   }, []);
 
-  const addCampaign = useCallback((campaign: Campaign) => {
-    storage.saveCampaign(campaign);
-    setCampaigns(storage.getCampaigns()); // Refresh from storage
+  const addCampaign = useCallback(async (campaign: Campaign) => {
+    await storage.saveCampaign(campaign);
+    await loadCampaigns();
   }, []);
 
-  const updateDonation = useCallback((campaignId: string, amount: number) => {
-    storage.updateDonation(campaignId, amount);
-    setCampaigns(storage.getCampaigns()); // Refresh from storage
+  const updateDonation = useCallback(async (campaignId: string, amount: number) => {
+    await storage.updateDonation(campaignId, amount);
+    await loadCampaigns();
   }, []);
   
   const getCampaignById = useCallback((id: string) => {
@@ -39,10 +48,11 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({ children }) 
 
   const campaignValue = useMemo(() => ({
     campaigns,
+    isLoading,
     addCampaign,
     updateDonation,
     getCampaignById
-  }), [campaigns, addCampaign, updateDonation, getCampaignById]);
+  }), [campaigns, isLoading, addCampaign, updateDonation, getCampaignById]);
 
   return (
     <CampaignContext.Provider value={campaignValue}>

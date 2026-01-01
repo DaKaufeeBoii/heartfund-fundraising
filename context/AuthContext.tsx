@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, ReactNode, useMemo, useEffect } from 'react';
 import type { User } from '../types';
 import { storage } from '../services/storage';
@@ -8,6 +9,7 @@ interface AuthContextType {
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,17 +20,19 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from storage on mount
   useEffect(() => {
     const storedUser = storage.getCurrentUser();
     if (storedUser) {
       setUser(storedUser);
     }
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    const storedUser = storage.findUser(email);
+    // Simulate Supabase: supabase.auth.signInWithPassword({ email, password })
+    const storedUser = await storage.findUser(email);
     if (storedUser && storedUser.password === password) {
       const { password, ...userWithoutPassword } = storedUser;
       setUser(userWithoutPassword);
@@ -39,22 +43,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    const existing = storage.findUser(email);
+    const existing = await storage.findUser(email);
     if (existing) {
-      return false; // User exists
+      return false;
     }
     
     const newUser = {
       id: `user-${Date.now()}`,
       name,
       email,
-      password, // In a real app, hash this!
+      password,
       avatar: `https://picsum.photos/seed/${name}/100/100`,
     };
 
-    storage.saveUser(newUser);
-    
-    // Auto login after register
+    await storage.saveUser(newUser);
     const { password: _, ...userWithoutPassword } = newUser;
     setUser(userWithoutPassword);
     storage.setCurrentUser(userWithoutPassword);
@@ -72,7 +74,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     isAuthenticated: user !== null,
-  }), [user]);
+    isLoading,
+  }), [user, isLoading]);
 
   return (
     <AuthContext.Provider value={authValue}>

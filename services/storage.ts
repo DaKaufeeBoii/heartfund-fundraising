@@ -2,16 +2,15 @@
 import { Campaign, User, DonationRecord, UserHistory } from '../types';
 import { MOCK_CAMPAIGNS } from '../constants';
 
+// In a real environment, we'd use the `supabase` client from ./supabase.ts
+// Here we simulate the async database behavior to maintain functionality while preparing for a real connection
+
 const KEYS = {
   USERS: 'heartfund_users',
   CAMPAIGNS: 'heartfund_campaigns',
   CURRENT_USER: 'heartfund_current_user',
   HISTORY_PREFIX: 'heartfund_history_'
 };
-
-interface StoredUser extends User {
-  password?: string;
-}
 
 const initializeDB = () => {
   if (!localStorage.getItem(KEYS.CAMPAIGNS)) {
@@ -25,19 +24,23 @@ const initializeDB = () => {
 initializeDB();
 
 export const storage = {
-  getCampaigns: (): Campaign[] => {
+  // SIMULATED SUPABASE QUERIES
+  getCampaigns: async (): Promise<Campaign[]> => {
+    // Simulate: supabase.from('campaigns').select('*')
     const data = localStorage.getItem(KEYS.CAMPAIGNS);
     return data ? JSON.parse(data) : [];
   },
 
-  saveCampaign: (campaign: Campaign) => {
-    const campaigns = storage.getCampaigns();
+  saveCampaign: async (campaign: Campaign) => {
+    // Simulate: supabase.from('campaigns').insert(campaign)
+    const campaigns = await storage.getCampaigns();
     const updated = [campaign, ...campaigns];
     localStorage.setItem(KEYS.CAMPAIGNS, JSON.stringify(updated));
   },
 
-  updateDonation: (campaignId: string, amount: number) => {
-    const campaigns = storage.getCampaigns();
+  updateDonation: async (campaignId: string, amount: number) => {
+    // Simulate: supabase.rpc('increment_donation', { cid: campaignId, val: amount })
+    const campaigns = await storage.getCampaigns();
     const updated = campaigns.map(c => 
       c.id === campaignId 
         ? { ...c, currentAmount: c.currentAmount + amount, donors: c.donors + 1 }
@@ -46,19 +49,19 @@ export const storage = {
     localStorage.setItem(KEYS.CAMPAIGNS, JSON.stringify(updated));
   },
 
-  getUsers: (): StoredUser[] => {
+  getUsers: async (): Promise<any[]> => {
     const data = localStorage.getItem(KEYS.USERS);
     return data ? JSON.parse(data) : [];
   },
 
-  saveUser: (user: StoredUser) => {
-    const users = storage.getUsers();
+  saveUser: async (user: any) => {
+    const users = await storage.getUsers();
     users.push(user);
     localStorage.setItem(KEYS.USERS, JSON.stringify(users));
   },
 
-  findUser: (email: string): StoredUser | undefined => {
-    const users = storage.getUsers();
+  findUser: async (email: string): Promise<any | undefined> => {
+    const users = await storage.getUsers();
     return users.find(u => u.email === email);
   },
 
@@ -75,15 +78,14 @@ export const storage = {
     return data ? JSON.parse(data) : null;
   },
 
-  // User History Logic
-  getUserHistory: (userId: string): UserHistory => {
+  getUserHistory: async (userId: string): Promise<UserHistory> => {
+    // Simulate: supabase.from('history').select('*').eq('user_id', userId)
     const data = localStorage.getItem(`${KEYS.HISTORY_PREFIX}${userId}`);
     return data ? JSON.parse(data) : { donations: [], recentlyViewedIds: [] };
   },
 
-  addDonationToHistory: (userId: string, record: DonationRecord) => {
-    const history = storage.getUserHistory(userId);
-    // Ensure the record includes the transactionId before saving
+  addDonationToHistory: async (userId: string, record: DonationRecord) => {
+    const history = await storage.getUserHistory(userId);
     const newRecord = {
       ...record,
       transactionId: record.transactionId || `TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
@@ -92,8 +94,8 @@ export const storage = {
     localStorage.setItem(`${KEYS.HISTORY_PREFIX}${userId}`, JSON.stringify(history));
   },
 
-  addRecentCampaign: (userId: string, campaignId: string) => {
-    const history = storage.getUserHistory(userId);
+  addRecentCampaign: async (userId: string, campaignId: string) => {
+    const history = await storage.getUserHistory(userId);
     const filtered = history.recentlyViewedIds.filter(id => id !== campaignId);
     history.recentlyViewedIds = [campaignId, ...filtered].slice(0, 5);
     localStorage.setItem(`${KEYS.HISTORY_PREFIX}${userId}`, JSON.stringify(history));
