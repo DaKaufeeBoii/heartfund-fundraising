@@ -127,7 +127,7 @@ const RegisterPage: React.FC = () => {
                 <div className="mt-2 p-3 bg-white/50 rounded-xl border border-amber-200">
                   <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1">Developer Tip:</p>
                   <p className="text-xs text-amber-800 leading-relaxed">
-                    Go to your <strong>Supabase Dashboard</strong> > <strong>Authentication</strong> > <strong>Providers</strong> > <strong>Email</strong> and turn off <strong>"Confirm email"</strong> to allow instant signups without sending emails.
+                    Go to your <strong>Supabase Dashboard</strong> = <strong>Authentication</strong> = <strong>Providers</strong> = <strong>Email</strong> and turn off <strong>"Confirm email"</strong> to allow instant signups without sending emails.
                   </p>
                 </div>
               )}
