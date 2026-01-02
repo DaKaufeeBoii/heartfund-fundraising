@@ -16,7 +16,7 @@ const CampaignDetailsPage: React.FC = () => {
   const { user } = useAuth();
   
   const campaign = id ? getCampaignById(id) : undefined;
-  const isExpired = campaign ? new Date(campaign.endDate) < new Date() : false;
+  const isExpired = campaign ? new Date(campaign.enddate) < new Date() : false;
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -25,16 +25,7 @@ const CampaignDetailsPage: React.FC = () => {
     if (user && id && campaign) {
       storage.addRecentCampaign(user.id, id);
     }
-    
-    if (isExpired) {
-      console.log(
-        "%c [HEARTFUND SECURITY] %c DISCONTINUED CAMPAIGN DETECTED ",
-        "background: #DC2626; color: white; font-weight: bold; padding: 2px 5px; border-radius: 2px;",
-        "background: #343434; color: #DC2626; font-weight: bold; padding: 2px 5px; border-radius: 2px;"
-      );
-      console.warn(`Attempted access to closed campaign: ${campaign?.title}. Donations are disabled until prior notice.`);
-    }
-  }, [id, user, campaign, isExpired]);
+  }, [id, user, campaign]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -66,10 +57,10 @@ const CampaignDetailsPage: React.FC = () => {
     );
   }
 
-  const { title, creator, creatorId, creatorAvatar, imageUrls, longDescription, currentAmount, goalAmount, donors, category, endDate } = campaign;
-  const isCreator = user?.id === creatorId;
-  const daysLeft = Math.max(0, Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)));
-  const percentage = Math.min(Math.round((currentAmount / goalAmount) * 100), 100);
+  const { title, creator, creatorid, creatoravatar, imageurls, longdescription, currentamount, goalamount, donors, category, enddate } = campaign;
+  const isCreator = user?.id === creatorid;
+  const daysLeft = Math.max(0, Math.ceil((new Date(enddate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)));
+  const percentage = Math.min(Math.round((currentamount / goalamount) * 100), 100);
 
   const campaignUrl = window.location.href;
 
@@ -117,7 +108,7 @@ const CampaignDetailsPage: React.FC = () => {
           {/* Left Column */}
           <div className="lg:col-span-3">
             <div className="mb-8">
-              <ImageCarousel images={imageUrls} title={title} />
+              <ImageCarousel images={imageurls} title={title} />
             </div>
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -128,7 +119,7 @@ const CampaignDetailsPage: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl border border-gray-100 mb-8">
-                <img src={creatorAvatar} alt={creator} className="h-12 w-12 rounded-full border-2 border-white shadow-sm" />
+                <img src={creatoravatar} alt={creator} className="h-12 w-12 rounded-full border-2 border-white shadow-sm" />
                 <div>
                     <p className="text-xs text-gray-500 font-bold uppercase tracking-tighter">Campaign Organized by</p>
                     <p className="font-bold text-gray-800 text-lg">{isCreator ? 'You' : creator}</p>
@@ -137,7 +128,7 @@ const CampaignDetailsPage: React.FC = () => {
 
             <div className="prose prose-blue max-w-none">
               <h2 className="text-2xl font-bold text-neutral mb-4">Our Story</h2>
-              <p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{longDescription}</p>
+              <p className="text-gray-600 text-lg leading-relaxed whitespace-pre-wrap">{longdescription}</p>
             </div>
           </div>
 
@@ -154,11 +145,11 @@ const CampaignDetailsPage: React.FC = () => {
               <div className="mb-6">
                 <div className="flex justify-between items-end mb-2">
                   <p className="text-4xl font-black text-primary">
-                    ${currentAmount.toLocaleString()}
+                    ${currentamount.toLocaleString()}
                   </p>
-                  <p className="text-sm font-bold text-gray-400 uppercase">Goal: ${goalAmount.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-gray-400 uppercase">Goal: ${goalamount.toLocaleString()}</p>
                 </div>
-                <ProgressBar current={currentAmount} goal={goalAmount} />
+                <ProgressBar current={currentamount} goal={goalamount} />
               </div>
 
               <div className="grid grid-cols-3 gap-4 mb-8">
@@ -254,7 +245,7 @@ const CampaignDetailsPage: React.FC = () => {
                   onClick={() => handleShare('email')}
                   className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-gray-50 bg-gray-50 hover:bg-red-50 hover:border-red-100 transition-all group"
                 >
-                  <svg className="w-8 h-8 text-red-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                  <svg className="w-8 h-8 text-red-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z" /></svg>
                   <span className="text-sm font-bold text-gray-700">Send Email</span>
                 </button>
                 <button 

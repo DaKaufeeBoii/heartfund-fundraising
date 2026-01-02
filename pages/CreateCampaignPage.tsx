@@ -15,10 +15,10 @@ const CreateCampaignPage: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setShortDescription] = useState('');
-  const [longDescription, setLongDescription] = useState('');
-  const [goalAmount, setGoalAmount] = useState('');
+  const [longdescription, setLongDescription] = useState('');
+  const [goalamount, setGoalAmount] = useState('');
   const [category, setCategory] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [enddate, setEndDate] = useState('');
   
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -73,19 +73,19 @@ const CreateCampaignPage: React.FC = () => {
 
       setUploadProgress('Finalizing with database...');
 
-      // 2. Save
+      // 2. Save - Standardizing to lowercase keys
       const campaignPayload = {
           title,
           description,
-          longDescription,
-          goalAmount: parseInt(goalAmount),
+          longdescription,
+          goalamount: parseInt(goalamount),
           category,
-          endDate,
+          enddate,
           creator: user.name,
-          creatorId: user.id,
-          creatorAvatar: user.avatar,
-          imageUrls: finalImageUrls,
-          currentAmount: 0,
+          creatorid: user.id,
+          creatoravatar: user.avatar,
+          imageurls: finalImageUrls,
+          currentamount: 0,
           donors: 0,
       };
 
@@ -95,11 +95,10 @@ const CreateCampaignPage: React.FC = () => {
       navigate(`/campaign/${createdCampaign.id}`);
     } catch (err: any) {
       console.error('[HEARTFUND] Launch failed:', err);
-      // Specifically check for RLS policy errors
       if (err.message?.includes('Security Policy') || err.code === '42501') {
-        setUploadError('Security Policy Violation: Your database is blocking the insert. Please run the RLS policies SQL in the Supabase SQL Editor.');
+        setUploadError('Security Policy Violation: Your database is blocking the insert.');
       } else {
-        setUploadError(err.message || 'The database rejected your campaign. Check your browser console.');
+        setUploadError(err.message || 'The database rejected your campaign.');
       }
     } finally {
       setIsSubmitting(false);
@@ -122,10 +121,6 @@ const CreateCampaignPage: React.FC = () => {
               <p className="text-md text-red-800 font-black uppercase tracking-tight">Launch Blocked</p>
             </div>
             <p className="text-sm text-red-700 font-bold">{uploadError}</p>
-            <div className="mt-4 p-3 bg-white/50 rounded-lg text-[10px] font-mono text-red-400">
-              Run this in Supabase SQL Editor:<br/>
-              CREATE POLICY "Allow Insert" ON campaigns FOR INSERT TO authenticated WITH CHECK (auth.uid() = creatorId);
-            </div>
           </div>
         )}
 
@@ -134,10 +129,10 @@ const CreateCampaignPage: React.FC = () => {
             <h3 className="text-lg font-bold text-primary border-b pb-2">Basic Information</h3>
             <InputField id="title" label="What are you raising funds for?" placeholder="e.g. Surgery for Little Timmy" value={title} onChange={e => setTitle(e.target.value)} required disabled={isSubmitting} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InputField id="goal" label="Goal Amount ($)" type="number" placeholder="5000" value={goalAmount} onChange={e => setGoalAmount(e.target.value)} required disabled={isSubmitting} />
+              <InputField id="goal" label="Goal Amount ($)" type="number" placeholder="5000" value={goalamount} onChange={e => setGoalAmount(e.target.value)} required disabled={isSubmitting} />
               <InputField id="category" label="Campaign Category" placeholder="Health, Arts, Community..." value={category} onChange={e => setCategory(e.target.value)} required disabled={isSubmitting} />
             </div>
-            <InputField id="endDate" label="When should the campaign end?" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required disabled={isSubmitting} />
+            <InputField id="enddate" label="When should the campaign end?" type="date" value={enddate} onChange={e => setEndDate(e.target.value)} required disabled={isSubmitting} />
           </div>
 
           <div className="space-y-6">
@@ -147,8 +142,8 @@ const CreateCampaignPage: React.FC = () => {
               <textarea id="description" placeholder="A brief hook to interest donors..." value={description} onChange={e => setShortDescription(e.target.value)} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" required disabled={isSubmitting}></textarea>
             </div>
              <div>
-              <label htmlFor="longDescription" className="block text-sm font-bold text-gray-700 mb-1">Tell the full story</label>
-              <textarea id="longDescription" placeholder="Detail the situation, the impact, and exactly how the funds will be used..." value={longDescription} onChange={e => setLongDescription(e.target.value)} rows={8} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" required disabled={isSubmitting}></textarea>
+              <label htmlFor="longdescription" className="block text-sm font-bold text-gray-700 mb-1">Tell the full story</label>
+              <textarea id="longdescription" placeholder="Detail the situation, the impact, and exactly how the funds will be used..." value={longdescription} onChange={e => setLongDescription(e.target.value)} rows={8} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" required disabled={isSubmitting}></textarea>
             </div>
           </div>
 

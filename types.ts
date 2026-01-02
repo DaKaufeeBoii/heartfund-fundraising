@@ -4,17 +4,17 @@ export interface Campaign {
   title: string;
   creator: string;
   // Unique identifier for the campaign creator
-  creatorId: string;
-  creatorAvatar: string;
+  creatorid: string;
+  creatoravatar: string;
   description: string;
-  longDescription: string;
-  imageUrls: string[]; 
-  goalAmount: number;
-  currentAmount: number;
+  longdescription: string;
+  imageurls: string[]; 
+  goalamount: number;
+  currentamount: number;
   donors: number;
   category: string;
-  endDate: string;
-  createdAt?: string;
+  enddate: string;
+  createdat?: string;
 }
 
 export interface User {
@@ -26,14 +26,14 @@ export interface User {
 
 export interface DonationRecord {
   id: string;
-  campaignId: string;
-  campaignTitle: string;
+  campaignid: string;
+  campaigntitle: string;
   amount: number;
   date: string;
-  transactionId: string;
+  transactionid: string;
 }
 
 export interface UserHistory {
   donations: DonationRecord[];
-  recentlyViewedIds: string[];
+  recentlyviewedids: string[];
 }

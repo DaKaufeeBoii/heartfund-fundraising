@@ -11,9 +11,7 @@ const HistoryPage: React.FC = () => {
   const { user } = useAuth();
   const { getCampaignById } = useCampaigns();
 
-  // Fix: storage.getUserHistory is an asynchronous function returning a Promise.
-  // We must fetch this data inside a useEffect and store it in state to handle the loading lifecycle correctly.
-  const [history, setHistory] = useState<UserHistory>({ donations: [], recentlyViewedIds: [] });
+  const [history, setHistory] = useState<UserHistory>({ donations: [], recentlyviewedids: [] });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,25 +32,22 @@ const HistoryPage: React.FC = () => {
   }, [user]);
 
   const recentlyViewed = useMemo(() => {
-    // history.recentlyViewedIds is now safely accessed from state
-    return history.recentlyViewedIds
+    return history.recentlyviewedids
       .map(id => getCampaignById(id))
       .filter((c): c is any => !!c);
-  }, [history.recentlyViewedIds, getCampaignById]);
+  }, [history.recentlyviewedids, getCampaignById]);
 
   const totalDonated = useMemo(() => {
-    // history.donations is now safely accessed from state
     return history.donations.reduce((sum, d) => sum + d.amount, 0);
   }, [history.donations]);
 
   if (!user) return null;
 
-  // Render a loading state while fetching asynchronous history data
   if (isLoading) {
     return (
       <Container className="py-24 text-center">
         <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Loading Impact Data...</p>
+        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Loading...</p>
       </Container>
     );
   }
@@ -61,41 +56,36 @@ const HistoryPage: React.FC = () => {
     <Container className="py-12">
       <div className="mb-10 text-center md:text-left">
         <h1 className="text-4xl font-extrabold text-neutral tracking-tight">My Impact Dashboard</h1>
-        <p className="mt-2 text-lg text-gray-600">Review your contributions and recently viewed causes.</p>
+        <p className="mt-2 text-lg text-gray-600">Your contributions and views.</p>
       </div>
 
-      {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div className="bg-primary text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
-          <p className="text-blue-200 text-sm font-semibold uppercase tracking-wider">Total Donated</p>
+        <div className="bg-primary text-white p-6 rounded-xl shadow-lg">
+          <p className="text-blue-200 text-sm font-semibold uppercase">Total Donated</p>
           <p className="text-3xl font-bold mt-1">${totalDonated.toLocaleString()}</p>
         </div>
-        <div className="bg-secondary text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
-          <p className="text-red-200 text-sm font-semibold uppercase tracking-wider">Causes Supported</p>
+        <div className="bg-secondary text-white p-6 rounded-xl shadow-lg">
+          <p className="text-red-200 text-sm font-semibold uppercase">Causes Supported</p>
           <p className="text-3xl font-bold mt-1">{history.donations.length}</p>
         </div>
-        <div className="bg-accent text-neutral p-6 rounded-xl shadow-lg transform transition hover:scale-105">
-          <p className="text-amber-800 text-sm font-semibold uppercase tracking-wider">Recently Viewed</p>
+        <div className="bg-accent text-neutral p-6 rounded-xl shadow-lg">
+          <p className="text-amber-800 text-sm font-semibold uppercase">Recently Viewed</p>
           <p className="text-3xl font-bold mt-1">{recentlyViewed.length}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        {/* Payment History List */}
         <div className="lg:col-span-2">
-          <h2 className="text-2xl font-bold text-neutral mb-6 flex items-center">
-            <span className="bg-primary w-2 h-8 mr-3 rounded-full"></span>
-            Payment History
-          </h2>
+          <h2 className="text-2xl font-bold text-neutral mb-6 flex items-center">Payment History</h2>
           {history.donations.length > 0 ? (
             <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campaign</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transaction ID</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Campaign</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction ID</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -105,10 +95,10 @@ const HistoryPage: React.FC = () => {
                         {new Date(d.date).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-4 text-sm font-medium text-primary">
-                        {d.campaignTitle}
+                        {d.campaigntitle}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-xs font-mono text-gray-400">
-                        {d.transactionId}
+                        {d.transactionid}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-right font-bold text-neutral">
                         ${d.amount.toFixed(2)}
@@ -125,12 +115,8 @@ const HistoryPage: React.FC = () => {
           )}
         </div>
 
-        {/* Recently Viewed Sidebar */}
         <div>
-          <h2 className="text-2xl font-bold text-neutral mb-6 flex items-center">
-            <span className="bg-accent w-2 h-8 mr-3 rounded-full"></span>
-            Recently Viewed
-          </h2>
+          <h2 className="text-2xl font-bold text-neutral mb-6 flex items-center">Recently Viewed</h2>
           <div className="space-y-6">
             {recentlyViewed.length > 0 ? (
               recentlyViewed.map(campaign => (

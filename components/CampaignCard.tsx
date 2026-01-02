@@ -9,11 +9,11 @@ interface CampaignCardProps {
 }
 
 const CampaignCard: React.FC<CampaignCardProps> = ({ campaign }) => {
-  const { id, title, description, imageUrls, currentAmount, goalAmount, creator, category, endDate } = campaign;
-  const percentage = Math.round((currentAmount / goalAmount) * 100);
-  const mainImage = imageUrls && imageUrls.length > 0 ? imageUrls[0] : 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?w=800';
+  const { id, title, description, imageurls, currentamount, goalamount, creator, category, enddate } = campaign;
+  const percentage = Math.round((currentamount / goalamount) * 100);
+  const mainImage = imageurls && imageurls.length > 0 ? imageurls[0] : 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?w=800';
   
-  const isExpired = new Date(endDate) < new Date();
+  const isExpired = new Date(enddate) < new Date();
 
   return (
     <Link to={`/campaign/${id}`} className="block group h-full">
@@ -39,13 +39,13 @@ const CampaignCard: React.FC<CampaignCardProps> = ({ campaign }) => {
           <p className="text-sm text-gray-500 font-medium mb-6 flex-grow line-clamp-2 leading-relaxed">{description}</p>
           
           <div className="mt-auto space-y-3">
-            <ProgressBar current={currentAmount} goal={goalAmount} />
+            <ProgressBar current={currentamount} goal={goalamount} />
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-lg font-black text-primary leading-none">
-                  ${currentAmount.toLocaleString()}
+                  ${currentamount.toLocaleString()}
                 </p>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Raised of ${goalAmount.toLocaleString()}</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Raised of ${goalamount.toLocaleString()}</p>
               </div>
               <p className="text-2xl font-black text-neutral/20 leading-none group-hover:text-accent transition-colors">{percentage}%</p>
             </div>

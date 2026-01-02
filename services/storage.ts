@@ -14,7 +14,7 @@ export const storage = {
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
-      .order('createdAt', { ascending: false });
+      .order('createdat', { ascending: false });
 
     if (error) {
       console.error('Error fetching campaigns:', error);
@@ -25,31 +25,30 @@ export const storage = {
 
   /**
    * Saves a new campaign. 
-   * CRITICAL: 'creatorId' must match auth.uid() for Row Level Security to pass.
+   * CRITICAL: 'creatorid' must match auth.uid() for Row Level Security to pass.
    */
   saveCampaign: async (campaign: Omit<Campaign, 'id'>): Promise<Campaign> => {
-    // 1. Double check current session to ensure IDs match
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session?.user) {
       throw new Error('You must be logged in to create a campaign.');
     }
 
-    // Ensure the payload strictly matches what the UI provides and what DB expects.
+    // Standardized to all lowercase keys to match Postgres defaults
     const payload = {
       title: campaign.title,
       description: campaign.description,
-      longDescription: campaign.longDescription,
-      goalAmount: campaign.goalAmount,
+      longdescription: campaign.longdescription,
+      goalamount: campaign.goalamount,
       category: campaign.category,
-      endDate: campaign.endDate,
+      enddate: campaign.enddate,
       creator: campaign.creator,
-      creatorAvatar: campaign.creatorAvatar,
-      imageUrls: campaign.imageUrls,
-      currentAmount: 0,
+      creatoravatar: campaign.creatoravatar,
+      imageurls: campaign.imageurls,
+      currentamount: 0,
       donors: 0,
-      creatorId: session.user.id, 
-      createdAt: new Date().toISOString()
+      creatorid: session.user.id, 
+      createdat: new Date().toISOString()
     };
 
     console.log('[HEARTFUND] Final Insert Payload:', payload);
@@ -63,8 +62,8 @@ export const storage = {
     if (error) {
       console.error('[HEARTFUND DATABASE ERROR]', error);
       
-      if (error.message.includes('column "createdAt" does not exist')) {
-        throw new Error('Database Schema Error: The "createdAt" column is missing. Please run the ALTER TABLE SQL.');
+      if (error.message.includes('column') && error.message.includes('not exist')) {
+        throw new Error(`Database Schema Error: ${error.message}. Please ensure your table columns are all lowercase.`);
       }
       
       if (error.code === '42501') {
@@ -81,7 +80,7 @@ export const storage = {
   updateDonation: async (campaignId: string, amount: number) => {
     const { data: campaign } = await supabase
       .from('campaigns')
-      .select('currentAmount, donors')
+      .select('currentamount, donors')
       .eq('id', campaignId)
       .single();
 
@@ -89,7 +88,7 @@ export const storage = {
       const { error } = await supabase
         .from('campaigns')
         .update({ 
-          currentAmount: (campaign.currentAmount || 0) + amount,
+          currentamount: (campaign.currentamount || 0) + amount,
           donors: (campaign.donors || 0) + 1 
         })
         .eq('id', campaignId);
@@ -157,28 +156,28 @@ export const storage = {
     const { data: donations } = await supabase
       .from('donations')
       .select('*')
-      .eq('userId', userId)
+      .eq('userid', userId)
       .order('date', { ascending: false });
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('recentlyViewedIds')
+      .select('recentlyviewedids')
       .eq('id', userId)
       .single();
 
     return {
       donations: (donations || []) as DonationRecord[],
-      recentlyViewedIds: profile?.recentlyViewedIds || []
+      recentlyviewedids: profile?.recentlyviewedids || []
     };
   },
 
   addDonationToHistory: async (userId: string, record: DonationRecord) => {
     await supabase.from('donations').insert([{
-      userId: userId,
-      campaignId: record.campaignId,
-      campaignTitle: record.campaignTitle,
+      userid: userId,
+      campaignid: record.campaignid,
+      campaigntitle: record.campaigntitle,
       amount: record.amount,
-      transactionId: record.transactionId,
+      transactionid: record.transactionid,
       date: record.date
     }]);
   },
@@ -187,17 +186,17 @@ export const storage = {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('recentlyViewedIds')
+        .select('recentlyviewedids')
         .eq('id', userId)
         .single();
 
-      const existingIds = profile?.recentlyViewedIds || [];
+      const existingIds = profile?.recentlyviewedids || [];
       const filtered = existingIds.filter((id: string) => id !== campaignId);
       const updatedIds = [campaignId, ...filtered].slice(0, 5);
 
       await supabase
         .from('profiles')
-        .update({ recentlyViewedIds: updatedIds })
+        .update({ recentlyviewedids: updatedIds })
         .eq('id', userId);
     } catch (e) {
       console.warn('Could not update recently viewed:', e);
