@@ -65,21 +65,48 @@ const DonationPage: React.FC = () => {
   const handleFinalizeDonation = async (transactionId: string) => {
     if (!user || !amount) return;
     setIsProcessing(true);
+    setSimulationMsg(null);
+    
+    let campaignUpdated = false;
+    const donationAmount = parseFloat(amount);
+
     try {
-      const donationAmount = parseFloat(amount);
+      // Step 1: Update the campaign totals (The most important part)
       await updateDonation(id, donationAmount);
-      await storage.addDonationToHistory(user.id, {
-        campaignid: id,
-        campaigntitle: campaign.title,
-        amount: donationAmount,
-        transactionid: transactionId,
-        date: new Date().toISOString()
-      });
+      campaignUpdated = true;
+      
+      // Step 2: Try to record in user history
+      try {
+        await storage.addDonationToHistory(user.id, {
+          campaignid: id,
+          campaigntitle: campaign.title,
+          amount: donationAmount,
+          transactionid: transactionId,
+          date: new Date().toISOString()
+        });
+      } catch (historyErr) {
+        console.warn("History sync failed, but campaign was updated:", historyErr);
+        // We set a warning but continue to show the success screen
+        setSimulationMsg({ 
+          type: 'warning', 
+          text: 'Donation successful, but we couldn\'t update your personal history list immediately. Don\'t worry, the cause received your support!' 
+        });
+      }
+
       setIsDonated(true);
       setLastTransactionId(transactionId);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Donation processing error:", err);
-      setSimulationMsg({ type: 'error', text: 'Database update failed. Payment was received but your impact record needs manual sync.' });
+      if (campaignUpdated) {
+        // This case is actually handled by the internal catch, but as a backup:
+        setIsDonated(true);
+        setLastTransactionId(transactionId);
+      } else {
+        setSimulationMsg({ 
+          type: 'error', 
+          text: `Critical: ${err.message || 'Database connection error'}. Please contact support with Transaction ID: ${transactionId}` 
+        });
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -94,13 +121,20 @@ const DonationPage: React.FC = () => {
           </div>
           <h2 className="text-4xl font-black text-neutral mb-4">Thank You, {user?.name}!</h2>
           <p className="text-xl text-gray-500 font-medium mb-8">Your contribution of <span className="text-primary font-black">${amount}</span> has been processed successfully.</p>
+          
+          {simulationMsg?.type === 'warning' && (
+            <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-800 font-bold">
+              {simulationMsg.text}
+            </div>
+          )}
+
           <div className="bg-gray-50 p-6 rounded-2xl mb-8 border border-gray-100">
              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Transaction ID</p>
              <p className="font-mono text-sm text-gray-600">{lastTransactionId}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
              <Link to="/history" className="flex-1">
-                <Button variant="primary" className="w-full">View My History</Button>
+                <Button variant="primary" className="w-full">View My Impact</Button>
              </Link>
              <Link to="/browse" className="flex-1">
                 <Button variant="accent" className="w-full">Explore More</Button>
@@ -226,12 +260,10 @@ const DonationPage: React.FC = () => {
                     <PayPalButtons 
                       style={{ layout: "vertical", shape: "pill", label: "donate" }}
                       createOrder={(data, actions) => {
-                        // Fix for Error: Property 'intent' is missing but required
                         return actions.order.create({
                           intent: "CAPTURE",
                           purchase_units: [
                             {
-                              // Fix: Add currency_code to satisfy PayPal types
                               amount: {
                                 currency_code: "USD",
                                 value: donationAmountValue.toFixed(2),

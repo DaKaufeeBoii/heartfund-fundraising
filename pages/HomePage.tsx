@@ -60,8 +60,7 @@ const HomePage: React.FC = () => {
               </Link>
               <Link to="/create">
                 <Button 
-                  variant="secondary" 
-                  size="lg" 
+                  variant="secondary" size="lg" 
                   className="w-full sm:w-auto py-5 px-10 text-xl shadow-[0_20px_50px_rgba(220,38,38,0.4)] bg-secondary hover:bg-red-700 hover:scale-105 transform transition-all duration-300 border-none"
                 >
                   Start Fundraising
@@ -169,7 +168,7 @@ const HomePage: React.FC = () => {
             <div className="space-y-4">
               {recentDonations.length > 0 ? (
                 recentDonations.map((donation, idx) => {
-                  const donorName = donation.profiles?.name || 'Anonymous';
+                  const donorName = donation.donorName || 'Anonymous';
                   return (
                     <div 
                       key={donation.id || idx} 

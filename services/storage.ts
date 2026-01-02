@@ -73,26 +73,28 @@ export const storage = {
       .from('campaigns')
       .select('currentamount, donors')
       .eq('id', campaignId)
-      .single();
+      .maybeSingle(); // Use maybeSingle to avoid 406 error if not found
 
     if (fetchError) {
       console.error('[HEARTFUND] Error fetching campaign for update:', fetchError);
       throw fetchError;
     }
 
-    if (campaign) {
-      const { error: updateError } = await supabase
-        .from('campaigns')
-        .update({ 
-          currentamount: (campaign.currentamount || 0) + amount,
-          donors: (campaign.donors || 0) + 1 
-        })
-        .eq('id', campaignId);
-      
-      if (updateError) {
-        console.error('[HEARTFUND] Error updating donation amounts:', updateError);
-        throw updateError;
-      }
+    if (!campaign) {
+      throw new Error(`Campaign with ID ${campaignId} not found in database.`);
+    }
+
+    const { error: updateError } = await supabase
+      .from('campaigns')
+      .update({ 
+        currentamount: (campaign.currentamount || 0) + amount,
+        donors: (campaign.donors || 0) + 1 
+      })
+      .eq('id', campaignId);
+    
+    if (updateError) {
+      console.error('[HEARTFUND] Error updating donation amounts:', updateError);
+      throw updateError;
     }
   },
 
@@ -123,27 +125,43 @@ export const storage = {
 
   // --- GLOBAL ACTIVITY ---
 
+  /**
+   * Manual join to avoid relationship errors.
+   */
   getGlobalRecentDonations: async (limit: number = 5): Promise<any[]> => {
-    // Select donations and join with the profiles table to get donor names/avatars
-    const { data, error } = await supabase
+    const { data: donations, error: donationError } = await supabase
       .from('donations')
-      .select(`
-        id,
-        amount,
-        date,
-        campaignid,
-        campaigntitle,
-        userid,
-        profiles:userid (name)
-      `)
+      .select('id, amount, date, campaignid, campaigntitle, userid')
       .order('date', { ascending: false })
       .limit(limit);
 
-    if (error) {
-      console.error('[HEARTFUND] Activity feed error:', error);
+    if (donationError) {
+      console.error('[HEARTFUND] Fetch donations failed:', donationError);
       return [];
     }
-    return data || [];
+
+    if (!donations || donations.length === 0) return [];
+
+    const userIds = [...new Set(donations.map(d => d.userid))];
+    const { data: profiles, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, name')
+      .in('id', userIds);
+
+    if (profileError) {
+      console.error('[HEARTFUND] Fetch profiles failed:', profileError);
+      return donations.map(d => ({ ...d, donorName: 'Anonymous Donor' }));
+    }
+
+    const profileMap = (profiles || []).reduce((acc: any, p: any) => {
+      acc[p.id] = p.name;
+      return acc;
+    }, {});
+
+    return donations.map(d => ({
+      ...d,
+      donorName: profileMap[d.userid] || 'Anonymous Donor'
+    }));
   },
 
   // --- USER PROFILE & AUTH ---
@@ -183,7 +201,7 @@ export const storage = {
    * Records a donation in the user history.
    */
   addDonationToHistory: async (userId: string, record: Omit<DonationRecord, 'id'>) => {
-    // Ensure we are also ensuring the profile exists
+    // Ensure the profile exists before inserting the donation
     await storage.ensureProfileExists(userId);
 
     const { error } = await supabase.from('donations').insert([{
@@ -196,20 +214,21 @@ export const storage = {
     }]);
     
     if (error) {
-      console.error('[HEARTFUND] Failed to record donation history:', error);
+      console.error('[HEARTFUND] Donation history insert failed:', error.message, error.details);
       throw error;
     }
   },
 
   ensureProfileExists: async (userId: string) => {
-    const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
-    if (!profile) {
-      const user = storage.getCurrentUser();
-      await supabase.from('profiles').insert({ 
-        id: userId, 
-        name: user?.name || 'Anonymous Donor',
-        recentlyviewedids: [] 
-      });
+    const user = storage.getCurrentUser();
+    // Using upsert with id as conflict target to ensure profile exists without throwing error if it does
+    const { error } = await supabase.from('profiles').upsert({ 
+      id: userId, 
+      name: user?.name || 'Anonymous Donor',
+    }, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('[HEARTFUND] Profile sync warning (non-fatal):', error.message);
     }
   },
 
