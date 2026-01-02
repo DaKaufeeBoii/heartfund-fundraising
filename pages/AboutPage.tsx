@@ -41,24 +41,48 @@ const AboutPage: React.FC = () => {
         </div>
 
         {/* Leadership Spotlight */}
-        <div className="bg-gray-50 rounded-[3rem] p-10 md:p-16 border border-gray-100 relative mb-20">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-full shadow-lg">
-            <HeartIcon className="w-8 h-8 text-secondary" />
-          </div>
-          <div className="max-w-3xl mx-auto text-center">
-            <h3 className="text-sm font-black text-gray-400 uppercase tracking-[0.3em] mb-6">Leadership Acknowledgment</h3>
-            <p className="text-2xl md:text-3xl font-bold text-neutral italic leading-snug mb-8">
-              "True change happens when we stop looking for heroes and start becoming the catalysts ourselves."
-            </p>
-            <div className="space-y-2">
-              <p className="text-xl font-black text-primary">Velagala Sai Tarun Reddy</p>
-              <p className="text-sm font-bold text-secondary uppercase tracking-widest">Chief Executive Officer</p>
-            </div>
-            <p className="mt-8 text-gray-500 leading-relaxed font-medium">
-              We extend our deepest gratitude to our CEO, **Velagala Sai Tarun Reddy**, whose unwavering leadership and transformative vision continue to drive HeartFund forward. His commitment to ethical innovation and social responsibility serves as the heartbeat of our organization, inspiring us all to reach further and give more.
-            </p>
-          </div>
+      <div className="bg-gray-50 rounded-[3rem] p-10 md:p-16 border border-gray-100 relative mb-20">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-full shadow-lg">
+          <HeartIcon className="w-8 h-8 text-secondary" />
         </div>
+
+      <div className="max-w-3xl mx-auto text-center">
+        <h3 className="text-sm font-black text-gray-400 uppercase tracking-[0.3em] mb-8">
+          Leadership Spotlight
+        </h3>
+
+      {/* CEO Image */}
+      <img
+      src="https://media.licdn.com/dms/image/v2/D5603AQEcB24vTTjk-g/profile-displayphoto-scale_200_200/B56Znl3MqvJkAc-/0/1760498083006?e=1769040000&v=beta&t=9zWzqjTw4hr8Q68dWVtizT5GIjTjfUmzJJ2_9vnF07o"
+      alt="Velagala Sai Tarun Reddy, Chief Executive Officer of HeartFund"
+      className="mx-auto mb-6 w-32 h-32 rounded-full object-cover border-4 border-secondary shadow-md"
+      />
+
+      {/* Name & Role */}
+      <div className="space-y-1 mb-6">
+        <p className="text-2xl font-black text-primary">
+          Velagala Sai Tarun Reddy
+        </p>
+        <p className="text-sm font-bold text-secondary uppercase tracking-widest">
+          Chief Executive Officer
+        </p>
+      </div>
+
+      {/* Quote */}
+      <p className="text-xl md:text-2xl font-semibold text-neutral italic leading-snug mb-8">
+        “Technology has value only when it is used to uplift people, not replace responsibility.”
+      </p>
+
+      {/* Description */}
+      <p className="text-gray-500 leading-relaxed font-medium">
+        Under the leadership of Velagala Sai Tarun Reddy, HeartFund is driven by a
+        clear focus on transparency, accountability, and social impact. His vision
+        emphasizes using technology as a tool for trust-building—ensuring that
+        every contribution is meaningful, traceable, and directed toward real
+        change.
+      </p>
+    </div>
+  </div>
 
         {/* Core Values */}
         <div className="text-center mb-12">
