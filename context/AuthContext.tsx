@@ -7,7 +7,7 @@ import { storage } from '../services/storage';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -45,9 +45,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (session?.user) {
         const profile = {
           id: session.user.id,
-          name: session.user.user_metadata.name,
+          name: session.user.user_metadata.name || session.user.email?.split('@')[0],
           email: session.user.email || '',
-          avatar: session.user.user_metadata.avatar,
+          avatar: session.user.user_metadata.avatar || `https://picsum.photos/seed/${session.user.id}/100/100`,
         };
         setUser(profile);
         storage.setCurrentUser(profile);
@@ -68,19 +68,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const register = async (name: string, email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           name,
-          avatar: `https://picsum.photos/seed/${email}/100/100`,
+          avatar: `https://picsum.photos/seed/${email.toLowerCase()}/100/100`,
         }
       }
     });
     
     if (error) return { success: false, error: error.message };
-    return { success: true };
+    return { success: true, data };
   };
 
   const logout = async () => {

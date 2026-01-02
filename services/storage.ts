@@ -142,7 +142,6 @@ export const storage = {
   // --- GLOBAL ACTIVITY ---
 
   getGlobalRecentDonations: async (limit: number = 5): Promise<any[]> => {
-    // Note: This requires a 'profiles' table to be linked or just fetch from 'donations'
     const { data, error } = await supabase
       .from('donations')
       .select(`*`)
@@ -177,12 +176,12 @@ export const storage = {
       .eq('userid', userId)
       .order('date', { ascending: false });
 
-    // Note: 'profiles' table should contain 'recentlyviewedids' column
+    // Using .maybeSingle() instead of .single() to avoid 406 error for new users
     const { data: profile } = await supabase
       .from('profiles')
       .select('recentlyviewedids')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     return {
       donations: (donations || []) as DonationRecord[],
@@ -209,18 +208,24 @@ export const storage = {
         .from('profiles')
         .select('recentlyviewedids')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       const existingIds = profile?.recentlyviewedids || [];
       const filtered = existingIds.filter((id: string) => id !== campaignId);
       const updatedIds = [campaignId, ...filtered].slice(0, 5);
 
-      await supabase
-        .from('profiles')
-        .update({ recentlyviewedids: updatedIds })
-        .eq('id', userId);
+      if (!profile) {
+        // Create the profile if it doesn't exist
+        await supabase
+          .from('profiles')
+          .insert({ id: userId, recentlyviewedids: updatedIds });
+      } else {
+        await supabase
+          .from('profiles')
+          .update({ recentlyviewedids: updatedIds })
+          .eq('id', userId);
+      }
     } catch (e) {
-      // Profiles might not be fully setup, silently fail
       console.debug('[HEARTFUND] Profile updates unavailable');
     }
   }
