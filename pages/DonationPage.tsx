@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { PayPalButtons, usePayPalScriptReducer } from "@paypal/react-paypal-js";
 import { useCampaigns } from '../hooks/useCampaigns';
 import { useAuth } from '../hooks/useAuth';
 import { storage } from '../services/storage';
@@ -15,6 +15,8 @@ const DonationPage: React.FC = () => {
   const { getCampaignById, updateDonation } = useCampaigns();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [{ isPending }] = usePayPalScriptReducer();
+
   const [amount, setAmount] = useState('');
   const [isDonated, setIsDonated] = useState(false);
   const [showPaypal, setShowPaypal] = useState(false);
@@ -48,207 +50,225 @@ const DonationPage: React.FC = () => {
       <Container className="py-20 text-center">
         <div className="max-w-md mx-auto bg-white p-8 rounded-3xl shadow-xl border border-red-100">
             <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-               <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+               <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.3" /></svg>
             </div>
-            <h1 className="text-2xl font-black text-neutral mb-2">Self-Donation Restricted</h1>
-            <p className="text-gray-500 mb-8 font-medium">You cannot donate to a campaign you created.</p>
-            <Button onClick={() => navigate(`/campaign/${campaign.id}`)} variant="primary" className="w-full">
-                Return to Campaign
-            </Button>
+            <h2 className="text-2xl font-black text-neutral mb-2">Self-Donation Restricted</h2>
+            <p className="text-gray-500 font-medium mb-6">To maintain platform integrity, you cannot donate to your own campaign.</p>
+            <Link to={`/campaign/${id}`}>
+                <Button variant="primary">Back to Campaign</Button>
+            </Link>
         </div>
       </Container>
     );
   }
 
-  const handleProceed = (e: React.FormEvent) => {
-    e.preventDefault();
-    const donationAmount = parseFloat(amount);
-    if (!isNaN(donationAmount) && donationAmount > 0) {
-      setShowPaypal(true);
-      setSimulationMsg(null);
-    }
-  };
-
-  const finalizeDonation = async (transactionId: string) => {
+  const handleFinalizeDonation = async (transactionId: string) => {
+    if (!user || !amount) return;
     setIsProcessing(true);
-    const donationAmount = parseFloat(amount) || 0;
-    
-    await updateDonation(campaign.id, donationAmount);
-    setLastTransactionId(transactionId);
-    
-    if (user) {
+    try {
+      const donationAmount = parseFloat(amount);
+      await updateDonation(id, donationAmount);
       await storage.addDonationToHistory(user.id, {
-        id: `donate-${Date.now()}`,
-        campaignid: campaign.id,
+        campaignid: id,
         campaigntitle: campaign.title,
         amount: donationAmount,
-        date: new Date().toISOString(),
-        transactionid: transactionId
+        transactionid: transactionId,
+        date: new Date().toISOString()
       });
-    }
-    
-    setTimeout(() => {
-        setIsProcessing(false);
-        setIsDonated(true);
-    }, 1500);
-  };
-
-  const handleApprove = async (data: any, actions: any) => {
-    try {
-        const order = await actions.order.capture();
-        finalizeDonation(order.id);
+      setIsDonated(true);
+      setLastTransactionId(transactionId);
     } catch (err) {
-        setSimulationMsg({ type: 'error', text: 'An unexpected error occurred during PayPal capture.' });
-    }
-  };
-
-  const handleCreateOrder = (data: any, actions: any) => {
-      return actions.order.create({
-          purchase_units: [{
-              description: `HeartFund Donation: ${campaign.title}`.substring(0, 127),
-              amount: { value: amount }
-          }]
-      });
-  };
-
-  const simulateScenario = (scenario: string) => {
-    setSimulationMsg(null);
-    setIsProcessing(true);
-    setTimeout(() => {
+      console.error("Donation processing error:", err);
+      setSimulationMsg({ type: 'error', text: 'Database update failed. Payment was received but your impact record needs manual sync.' });
+    } finally {
       setIsProcessing(false);
-      switch(scenario) {
-        case 'success':
-          finalizeDonation(`SIM-PAYPAL-${Math.random().toString(36).substr(2, 8).toUpperCase()}`);
-          break;
-        case 'insufficient':
-          setSimulationMsg({ type: 'error', text: 'Transaction Rejected: Insufficient funds.' });
-          break;
-        case '3ds':
-          setSimulationMsg({ type: 'warning', text: 'Action Required: 3D Secure verification needed.' });
-          break;
-        case 'blocked':
-          setSimulationMsg({ type: 'error', text: 'Fraud Alert: Transaction blocked.' });
-          break;
-      }
-    }, 1500);
-  };
-
-  const downloadReceipt = () => {
-    const content = `
-HEARTFUND DONATION RECEIPT
---------------------------
-Transaction ID: ${lastTransactionId}
-Date: ${new Date().toLocaleString()}
-Donor: ${user?.name}
-Campaign: ${campaign.title}
-Amount: $${parseFloat(amount).toFixed(2)} USD
-
-Thank you for your support.
-    `.trim();
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Receipt_${lastTransactionId}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    }
   };
 
   if (isDonated) {
     return (
-        <Container className="py-20 animate-in fade-in duration-700">
-            <div className="max-w-xl mx-auto space-y-8">
-              <div className="text-center">
-                  <div className="bg-green-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                    <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                  </div>
-                  <h1 className="text-4xl font-black text-neutral mb-2">Donation Complete</h1>
-                  <p className="text-lg text-gray-500 font-medium tracking-tight">Thank you for your impact.</p>
-              </div>
-
-              <div className="bg-white p-10 rounded-[2.5rem] shadow-[0_30px_70px_-15px_rgba(0,0,0,0.1)] border border-gray-100 relative overflow-hidden">
-                <div className="relative z-10">
-                  <div className="flex items-center space-x-3 mb-10 border-b border-dashed border-gray-200 pb-8">
-                    <HeartIcon className="h-10 w-10 text-secondary" />
-                    <h2 className="text-2xl font-black text-primary tracking-tighter">HeartFund</h2>
-                  </div>
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center"><span className="text-gray-400 font-bold text-[10px] uppercase">Donor</span><span className="font-black text-neutral">{user?.name}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-gray-400 font-bold text-[10px] uppercase">Cause</span><span className="font-black text-primary max-w-[200px] text-right">{campaign.title}</span></div>
-                    <div className="flex justify-between items-center"><span className="text-gray-400 font-bold text-[10px] uppercase">Reference</span><span className="font-mono text-xs text-gray-500">{lastTransactionId}</span></div>
-                    <div className="flex justify-between items-end pt-8 border-t border-gray-100">
-                      <span className="text-gray-400 font-bold text-[10px] uppercase">Total Gift</span>
-                      <span className="text-5xl font-black text-secondary">${parseFloat(amount).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Button onClick={downloadReceipt} variant="primary" className="py-4 rounded-2xl flex items-center justify-center gap-2">Save as .txt</Button>
-                <Button onClick={() => window.print()} variant="accent" className="py-4 rounded-2xl flex items-center justify-center gap-2">Print PDF</Button>
-                <Button onClick={() => navigate(`/campaign/${campaign.id}`)} variant="secondary" className="sm:col-span-2 py-5 text-xl rounded-2xl">Return to Campaign</Button>
-              </div>
-            </div>
-        </Container>
+      <Container className="py-20">
+        <div className="max-w-xl mx-auto bg-white p-12 rounded-[3rem] shadow-2xl border border-gray-100 text-center">
+          <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce">
+            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+          </div>
+          <h2 className="text-4xl font-black text-neutral mb-4">Thank You, {user?.name}!</h2>
+          <p className="text-xl text-gray-500 font-medium mb-8">Your contribution of <span className="text-primary font-black">${amount}</span> has been processed successfully.</p>
+          <div className="bg-gray-50 p-6 rounded-2xl mb-8 border border-gray-100">
+             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Transaction ID</p>
+             <p className="font-mono text-sm text-gray-600">{lastTransactionId}</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+             <Link to="/history" className="flex-1">
+                <Button variant="primary" className="w-full">View My History</Button>
+             </Link>
+             <Link to="/browse" className="flex-1">
+                <Button variant="accent" className="w-full">Explore More</Button>
+             </Link>
+          </div>
+        </div>
+      </Container>
     );
   }
 
+  const donationAmountValue = parseFloat(amount);
+  const isValidAmount = !isNaN(donationAmountValue) && donationAmountValue >= 1;
+
   return (
-    <Container className="py-12 sm:py-20">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl border border-gray-100">
-          <div className="text-center mb-10">
-              <h1 className="text-4xl font-black text-neutral tracking-tight">Checkout</h1>
-              <p className="text-gray-500 font-medium">Supporting "{campaign.title}"</p>
-          </div>
-
-          {isProcessing && (
-            <div className="mb-8 p-5 bg-primary/5 text-primary rounded-2xl flex items-center gap-4 border border-primary/10 animate-pulse">
-               <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-               <span className="font-black text-xs uppercase tracking-[0.2em]">Processing...</span>
-            </div>
-          )}
-
-          {!showPaypal ? (
-              <form onSubmit={handleProceed} className="space-y-8">
-                  <div className="bg-gray-50 p-8 rounded-[2rem] border border-gray-100">
-                    <InputField id="donationAmount" label="Pledge Amount (USD)" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required min="1" placeholder="0.00" className="text-2xl font-black h-16 p-6" />
-                  </div>
-                  <Button type="submit" variant="secondary" size="lg" className="w-full py-5 text-xl rounded-2xl">Next: Choose Payment Method</Button>
-              </form>
-          ) : (
-              <div className="space-y-10">
-                  <div className="p-8 bg-neutral text-white rounded-[2rem] border-4 border-accent shadow-2xl flex justify-between items-center">
-                    <div>
-                      <span className="text-5xl font-black tracking-tighter">${parseFloat(amount).toFixed(2)}</span>
-                    </div>
-                    <HeartIcon className="h-12 w-12 text-secondary opacity-50" />
-                  </div>
-
-                  <div className="relative z-0 min-h-[150px]">
-                    <PayPalScriptProvider options={{ "clientId": "test", "currency": "USD", "intent": "capture" }}>
-                      <PayPalButtons 
-                        style={{ layout: "vertical", color: "gold", shape: "rect", label: "paypal" } as any}
-                        createOrder={handleCreateOrder}
-                        onApprove={handleApprove}
-                        disabled={isProcessing}
-                      />
-                    </PayPalScriptProvider>
-                  </div>
-
-                  <div className="border-4 border-dashed border-gray-100 p-8 rounded-[2rem] bg-gray-50/50">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <button onClick={() => simulateScenario('success')} disabled={isProcessing} className="py-4 bg-green-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest">Force Success</button>
-                      <button onClick={() => simulateScenario('insufficient')} disabled={isProcessing} className="py-4 bg-white text-red-600 border-2 border-red-100 rounded-2xl font-black text-[10px] uppercase tracking-widest">Insuff. Funds</button>
-                    </div>
-                  </div>
-
-                  <button onClick={() => setShowPaypal(false)} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-800 w-full text-center p-2">
-                      ← Go back
-                  </button>
+    <Container className="py-12">
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
+        {/* Left: Campaign Summary */}
+        <div className="flex-1 space-y-6">
+           <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+              <Link to={`/campaign/${id}`} className="inline-flex items-center text-primary font-black text-xs uppercase tracking-widest hover:underline mb-4">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                Back to Campaign
+              </Link>
+              <img src={campaign.imageurls[0]} alt="" className="w-full aspect-video object-cover rounded-2xl mb-4" />
+              <h1 className="text-2xl font-black text-neutral leading-tight mb-2">{campaign.title}</h1>
+              <p className="text-gray-500 font-medium text-sm line-clamp-3">{campaign.description}</p>
+           </div>
+           
+           <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
+              <div className="flex items-center gap-3 text-primary mb-2">
+                <HeartIcon className="w-6 h-6 text-secondary" />
+                <h3 className="font-bold">Transparent Giving</h3>
               </div>
-          )}
+              <p className="text-sm text-blue-700 font-medium">100% of your donation (minus payment processing fees) goes directly to the organizer.</p>
+           </div>
+        </div>
+
+        {/* Right: Donation Form */}
+        <div className="flex-1">
+          <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] shadow-2xl border border-gray-100 relative overflow-hidden">
+            {isProcessing && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4"></div>
+                <p className="font-black text-primary animate-pulse">Confirming impact...</p>
+              </div>
+            )}
+
+            <h2 className="text-3xl font-black text-neutral tracking-tight mb-8 text-center">Support this cause</h2>
+            
+            {simulationMsg && (
+               <div className={`mb-6 p-4 rounded-xl text-sm font-bold ${simulationMsg.type === 'error' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                  {simulationMsg.text}
+               </div>
+            )}
+
+            {!showPaypal ? (
+              <div className="space-y-6">
+                <InputField 
+                  id="amount" 
+                  label="Donation Amount ($)" 
+                  type="number" 
+                  min="1"
+                  step="0.01"
+                  placeholder="25.00"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    setSimulationMsg(null);
+                  }}
+                  className="h-16 text-2xl font-black text-primary text-center rounded-2xl border-gray-200"
+                />
+                
+                <div className="grid grid-cols-4 gap-2">
+                  {[10, 25, 50, 100].map(val => (
+                    <button 
+                      key={val} 
+                      type="button"
+                      onClick={() => setAmount(val.toString())}
+                      className={`py-3 rounded-xl border-2 font-black text-sm transition-all ${amount === val.toString() ? 'border-primary bg-primary text-white shadow-lg' : 'border-gray-50 bg-gray-50 text-gray-500 hover:border-gray-200'}`}
+                    >
+                      ${val}
+                    </button>
+                  ))}
+                </div>
+
+                <Button 
+                  onClick={() => setShowPaypal(true)}
+                  variant="secondary" 
+                  size="lg" 
+                  disabled={!isValidAmount}
+                  className="w-full py-5 text-xl shadow-xl shadow-red-100 disabled:opacity-50 disabled:shadow-none"
+                >
+                  Continue to Payment
+                </Button>
+                
+                <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest pt-2">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                  Secure Encryption by PayPal
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100 mb-2">
+                   <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Support</p>
+                      <p className="text-2xl font-black text-primary">${donationAmountValue.toFixed(2)}</p>
+                   </div>
+                   <button 
+                    onClick={() => setShowPaypal(false)} 
+                    className="text-xs font-black text-gray-400 hover:text-neutral hover:underline uppercase tracking-widest"
+                   >
+                     Change
+                   </button>
+                </div>
+
+                {isPending ? (
+                  <div className="py-10 flex flex-col items-center justify-center">
+                    <div className="animate-spin h-8 w-8 border-4 border-gray-200 border-t-primary rounded-full mb-4"></div>
+                    <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Loading PayPal...</p>
+                  </div>
+                ) : (
+                  <div className="animate-in fade-in duration-500">
+                    <PayPalButtons 
+                      style={{ layout: "vertical", shape: "pill", label: "donate" }}
+                      createOrder={(data, actions) => {
+                        return actions.order.create({
+                          purchase_units: [
+                            {
+                              // Fix: Add currency_code to satisfy PayPal types
+                              amount: {
+                                currency_code: "USD",
+                                value: donationAmountValue.toFixed(2),
+                              },
+                              description: `Donation to ${campaign.title}`
+                            },
+                          ],
+                        });
+                      }}
+                      onApprove={async (data, actions) => {
+                        if (actions.order) {
+                          const details = await actions.order.capture();
+                          handleFinalizeDonation(details.id);
+                        }
+                      }}
+                      onCancel={() => {
+                        setSimulationMsg({ type: 'warning', text: 'Payment cancelled. Your support still matters when you are ready!' });
+                      }}
+                      onError={(err) => {
+                        console.error("PayPal Script Error", err);
+                        setSimulationMsg({ type: 'error', text: 'PayPal encountered an error. Please refresh or try another method.' });
+                      }}
+                    />
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t border-gray-100">
+                   <p className="text-[10px] font-black text-gray-300 text-center uppercase tracking-widest mb-4">Developer Tools</p>
+                   <button 
+                    onClick={() => handleFinalizeDonation(`SIM-${Math.random().toString(36).substring(7).toUpperCase()}`)}
+                    className="w-full py-3 text-xs font-black text-gray-400 hover:text-primary transition-colors border border-dashed border-gray-200 rounded-xl flex items-center justify-center gap-2"
+                   >
+                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                     Instant Simulation (Test DB)
+                   </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Container>

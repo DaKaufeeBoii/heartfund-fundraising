@@ -34,8 +34,6 @@ export const storage = {
       throw new Error('You must be logged in to create a campaign.');
     }
 
-    // Explicitly mapping payload to ensure NO 'id' is sent.
-    // This allows the database's DEFAULT gen_random_uuid() to kick in.
     const payload = {
       title: campaign.title,
       description: campaign.description,
@@ -52,8 +50,6 @@ export const storage = {
       createdat: new Date().toISOString()
     };
 
-    console.log('[HEARTFUND] Attempting DB Insert with payload:', payload);
-
     const { data, error } = await supabase
       .from('campaigns')
       .insert([payload])
@@ -62,27 +58,18 @@ export const storage = {
 
     if (error) {
       console.error('[HEARTFUND DATABASE ERROR]', error);
-      
-      // Specific handling for the "null value in column id" error
       if (error.message.includes('null value in column "id"')) {
-        throw new Error('Database Configuration Error: The "id" column is not auto-generating. Please run: ALTER TABLE campaigns ALTER COLUMN id SET DEFAULT gen_random_uuid();');
+        throw new Error('Database Error: id not generated. Run: ALTER TABLE campaigns ALTER COLUMN id SET DEFAULT gen_random_uuid();');
       }
-
-      if (error.message.includes('column') && error.message.includes('not exist')) {
-        throw new Error(`Schema Mismatch: ${error.message}. Ensure all table columns are lowercase.`);
-      }
-      
-      if (error.code === '42501') {
-        throw new Error('Security Policy (RLS) Error: You do not have permission to insert into this table.');
-      }
-
       throw error;
     }
 
-    console.log('[HEARTFUND] Campaign successfully launched with ID:', data.id);
     return data as Campaign;
   },
 
+  /**
+   * Updates campaign totals.
+   */
   updateDonation: async (campaignId: string, amount: number) => {
     const { data: campaign, error: fetchError } = await supabase
       .from('campaigns')
@@ -92,7 +79,7 @@ export const storage = {
 
     if (fetchError) {
       console.error('[HEARTFUND] Error fetching campaign for update:', fetchError);
-      return;
+      throw fetchError;
     }
 
     if (campaign) {
@@ -123,10 +110,7 @@ export const storage = {
         .from('campaign-images')
         .upload(filePath, file);
 
-      if (uploadError) {
-        console.error('[HEARTFUND STORAGE ERROR]', uploadError);
-        throw new Error(`Storage Error: ${uploadError.message}. Ensure the "campaign-images" bucket exists and is public.`);
-      }
+      if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage
         .from('campaign-images')
@@ -148,10 +132,7 @@ export const storage = {
       .order('date', { ascending: false })
       .limit(limit);
 
-    if (error) {
-      console.warn('[HEARTFUND] Global activity fetch failed:', error.message);
-      return [];
-    }
+    if (error) return [];
     return data || [];
   },
 
@@ -176,7 +157,6 @@ export const storage = {
       .eq('userid', userId)
       .order('date', { ascending: false });
 
-    // Using .maybeSingle() instead of .single() to avoid 406 error for new users
     const { data: profile } = await supabase
       .from('profiles')
       .select('recentlyviewedids')
@@ -189,7 +169,11 @@ export const storage = {
     };
   },
 
-  addDonationToHistory: async (userId: string, record: DonationRecord) => {
+  /**
+   * Records a donation in the user history.
+   * Omit 'id' so the database can generate a unique ID.
+   */
+  addDonationToHistory: async (userId: string, record: Omit<DonationRecord, 'id'>) => {
     const { error } = await supabase.from('donations').insert([{
       userid: userId,
       campaignid: record.campaignid,
@@ -199,7 +183,10 @@ export const storage = {
       date: record.date
     }]);
     
-    if (error) console.error('[HEARTFUND] Failed to record donation history:', error);
+    if (error) {
+      console.error('[HEARTFUND] Failed to record donation history:', error);
+      throw error;
+    }
   },
 
   addRecentCampaign: async (userId: string, campaignId: string) => {
@@ -215,7 +202,6 @@ export const storage = {
       const updatedIds = [campaignId, ...filtered].slice(0, 5);
 
       if (!profile) {
-        // Create the profile if it doesn't exist
         await supabase
           .from('profiles')
           .insert({ id: userId, recentlyviewedids: updatedIds });
