@@ -17,7 +17,7 @@ export const storage = {
       .order('createdat', { ascending: false });
 
     if (error) {
-      console.error('Error fetching campaigns:', error);
+      console.error('[HEARTFUND] Fetch campaigns error:', error);
       return [];
     }
     return data as Campaign[];
@@ -25,7 +25,7 @@ export const storage = {
 
   /**
    * Saves a new campaign. 
-   * CRITICAL: 'creatorid' must match auth.uid() for Row Level Security to pass.
+   * CRITICAL: The 'id' column must have a DEFAULT (gen_random_uuid()) in the DB.
    */
   saveCampaign: async (campaign: Omit<Campaign, 'id'>): Promise<Campaign> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -34,7 +34,8 @@ export const storage = {
       throw new Error('You must be logged in to create a campaign.');
     }
 
-    // Standardized to all lowercase keys to match Postgres defaults
+    // Explicitly mapping payload to ensure NO 'id' is sent.
+    // This allows the database's DEFAULT gen_random_uuid() to kick in.
     const payload = {
       title: campaign.title,
       description: campaign.description,
@@ -51,7 +52,7 @@ export const storage = {
       createdat: new Date().toISOString()
     };
 
-    console.log('[HEARTFUND] Final Insert Payload:', payload);
+    console.log('[HEARTFUND] Attempting DB Insert with payload:', payload);
 
     const { data, error } = await supabase
       .from('campaigns')
@@ -62,30 +63,40 @@ export const storage = {
     if (error) {
       console.error('[HEARTFUND DATABASE ERROR]', error);
       
+      // Specific handling for the "null value in column id" error
+      if (error.message.includes('null value in column "id"')) {
+        throw new Error('Database Configuration Error: The "id" column is not auto-generating. Please run: ALTER TABLE campaigns ALTER COLUMN id SET DEFAULT gen_random_uuid();');
+      }
+
       if (error.message.includes('column') && error.message.includes('not exist')) {
-        throw new Error(`Database Schema Error: ${error.message}. Please ensure your table columns are all lowercase.`);
+        throw new Error(`Schema Mismatch: ${error.message}. Ensure all table columns are lowercase.`);
       }
       
       if (error.code === '42501') {
-        throw new Error('Security Policy Error: Your RLS policies are blocking this action.');
+        throw new Error('Security Policy (RLS) Error: You do not have permission to insert into this table.');
       }
 
       throw error;
     }
 
-    console.log('[HEARTFUND] Campaign successfully launched:', data.id);
+    console.log('[HEARTFUND] Campaign successfully launched with ID:', data.id);
     return data as Campaign;
   },
 
   updateDonation: async (campaignId: string, amount: number) => {
-    const { data: campaign } = await supabase
+    const { data: campaign, error: fetchError } = await supabase
       .from('campaigns')
       .select('currentamount, donors')
       .eq('id', campaignId)
       .single();
 
+    if (fetchError) {
+      console.error('[HEARTFUND] Error fetching campaign for update:', fetchError);
+      return;
+    }
+
     if (campaign) {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('campaigns')
         .update({ 
           currentamount: (campaign.currentamount || 0) + amount,
@@ -93,7 +104,10 @@ export const storage = {
         })
         .eq('id', campaignId);
       
-      if (error) throw error;
+      if (updateError) {
+        console.error('[HEARTFUND] Error updating donation amounts:', updateError);
+        throw updateError;
+      }
     }
   },
 
@@ -111,7 +125,7 @@ export const storage = {
 
       if (uploadError) {
         console.error('[HEARTFUND STORAGE ERROR]', uploadError);
-        throw uploadError;
+        throw new Error(`Storage Error: ${uploadError.message}. Ensure the "campaign-images" bucket exists and is public.`);
       }
 
       const { data: urlData } = supabase.storage
@@ -128,13 +142,17 @@ export const storage = {
   // --- GLOBAL ACTIVITY ---
 
   getGlobalRecentDonations: async (limit: number = 5): Promise<any[]> => {
+    // Note: This requires a 'profiles' table to be linked or just fetch from 'donations'
     const { data, error } = await supabase
       .from('donations')
-      .select(`*, profiles(name)`)
+      .select(`*`)
       .order('date', { ascending: false })
       .limit(limit);
 
-    if (error) return [];
+    if (error) {
+      console.warn('[HEARTFUND] Global activity fetch failed:', error.message);
+      return [];
+    }
     return data || [];
   },
 
@@ -159,6 +177,7 @@ export const storage = {
       .eq('userid', userId)
       .order('date', { ascending: false });
 
+    // Note: 'profiles' table should contain 'recentlyviewedids' column
     const { data: profile } = await supabase
       .from('profiles')
       .select('recentlyviewedids')
@@ -172,7 +191,7 @@ export const storage = {
   },
 
   addDonationToHistory: async (userId: string, record: DonationRecord) => {
-    await supabase.from('donations').insert([{
+    const { error } = await supabase.from('donations').insert([{
       userid: userId,
       campaignid: record.campaignid,
       campaigntitle: record.campaigntitle,
@@ -180,6 +199,8 @@ export const storage = {
       transactionid: record.transactionid,
       date: record.date
     }]);
+    
+    if (error) console.error('[HEARTFUND] Failed to record donation history:', error);
   },
 
   addRecentCampaign: async (userId: string, campaignId: string) => {
@@ -199,7 +220,8 @@ export const storage = {
         .update({ recentlyviewedids: updatedIds })
         .eq('id', userId);
     } catch (e) {
-      console.warn('Could not update recently viewed:', e);
+      // Profiles might not be fully setup, silently fail
+      console.debug('[HEARTFUND] Profile updates unavailable');
     }
   }
 };
