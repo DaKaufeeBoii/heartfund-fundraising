@@ -168,41 +168,44 @@ const HomePage: React.FC = () => {
 
             <div className="space-y-4">
               {recentDonations.length > 0 ? (
-                recentDonations.map((donation, idx) => (
-                  <div 
-                    key={donation.id || idx} 
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-100 transition-all group animate-in slide-in-from-bottom-4"
-                    style={{ animationDelay: `${idx * 100}ms` }}
-                  >
-                    <div className="flex items-center gap-4 mb-4 sm:mb-0">
-                      <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-primary font-black text-xl">
-                        {(donation.profiles?.name || 'A')[0].toUpperCase()}
+                recentDonations.map((donation, idx) => {
+                  const donorName = donation.profiles?.name || 'Anonymous';
+                  return (
+                    <div 
+                      key={donation.id || idx} 
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-100 transition-all group animate-in slide-in-from-bottom-4"
+                      style={{ animationDelay: `${idx * 100}ms` }}
+                    >
+                      <div className="flex items-center gap-4 mb-4 sm:mb-0">
+                        <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-primary font-black text-xl">
+                          {donorName[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-neutral font-black">
+                            {donorName}
+                          </p>
+                          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+                            donated to <Link to={`/campaign/${donation.campaignid}`} className="text-primary hover:underline">{donation.campaigntitle}</Link>
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-neutral font-black">
-                          {donation.profiles?.name || 'Anonymous'}
-                        </p>
-                        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                          donated to <Link to={`/campaign/${donation.campaignId}`} className="text-primary hover:underline">{donation.campaignTitle}</Link>
-                        </p>
+                      <div className="flex items-center justify-between sm:justify-end gap-6">
+                        <div className="text-right">
+                          <p className="text-2xl font-black text-secondary">${donation.amount.toLocaleString()}</p>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                            {new Date(donation.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <div className="h-8 w-px bg-gray-100 hidden sm:block"></div>
+                        <Link to={`/campaign/${donation.campaignid}`}>
+                          <Button variant="primary" size="sm" className="bg-primary/5 text-primary hover:bg-primary hover:text-white border-none shadow-none">
+                            View Cause
+                          </Button>
+                        </Link>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-6">
-                      <div className="text-right">
-                        <p className="text-2xl font-black text-secondary">${donation.amount.toLocaleString()}</p>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                          {new Date(donation.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                      <div className="h-8 w-px bg-gray-100 hidden sm:block"></div>
-                      <Link to={`/campaign/${donation.campaignId}`}>
-                        <Button variant="primary" size="sm" className="bg-primary/5 text-primary hover:bg-primary hover:text-white border-none shadow-none">
-                          View Cause
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-200">
                   <p className="text-gray-400 font-medium italic">Waiting for new heartbeats...</p>

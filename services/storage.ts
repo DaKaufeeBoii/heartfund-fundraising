@@ -25,7 +25,6 @@ export const storage = {
 
   /**
    * Saves a new campaign. 
-   * CRITICAL: The 'id' column must have a DEFAULT (gen_random_uuid()) in the DB.
    */
   saveCampaign: async (campaign: Omit<Campaign, 'id'>): Promise<Campaign> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -58,9 +57,6 @@ export const storage = {
 
     if (error) {
       console.error('[HEARTFUND DATABASE ERROR]', error);
-      if (error.message.includes('null value in column "id"')) {
-        throw new Error('Database Error: id not generated. Run: ALTER TABLE campaigns ALTER COLUMN id SET DEFAULT gen_random_uuid();');
-      }
       throw error;
     }
 
@@ -71,6 +67,8 @@ export const storage = {
    * Updates campaign totals.
    */
   updateDonation: async (campaignId: string, amount: number) => {
+    // We use a fetch-and-update pattern here. In a production app, 
+    // a PostgreSQL RPC (function) with an atomic increment would be better.
     const { data: campaign, error: fetchError } = await supabase
       .from('campaigns')
       .select('currentamount, donors')
@@ -126,13 +124,25 @@ export const storage = {
   // --- GLOBAL ACTIVITY ---
 
   getGlobalRecentDonations: async (limit: number = 5): Promise<any[]> => {
+    // Select donations and join with the profiles table to get donor names/avatars
     const { data, error } = await supabase
       .from('donations')
-      .select(`*`)
+      .select(`
+        id,
+        amount,
+        date,
+        campaignid,
+        campaigntitle,
+        userid,
+        profiles:userid (name)
+      `)
       .order('date', { ascending: false })
       .limit(limit);
 
-    if (error) return [];
+    if (error) {
+      console.error('[HEARTFUND] Activity feed error:', error);
+      return [];
+    }
     return data || [];
   },
 
@@ -171,9 +181,11 @@ export const storage = {
 
   /**
    * Records a donation in the user history.
-   * Omit 'id' so the database can generate a unique ID.
    */
   addDonationToHistory: async (userId: string, record: Omit<DonationRecord, 'id'>) => {
+    // Ensure we are also ensuring the profile exists
+    await storage.ensureProfileExists(userId);
+
     const { error } = await supabase.from('donations').insert([{
       userid: userId,
       campaignid: record.campaignid,
@@ -189,8 +201,21 @@ export const storage = {
     }
   },
 
+  ensureProfileExists: async (userId: string) => {
+    const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+    if (!profile) {
+      const user = storage.getCurrentUser();
+      await supabase.from('profiles').insert({ 
+        id: userId, 
+        name: user?.name || 'Anonymous Donor',
+        recentlyviewedids: [] 
+      });
+    }
+  },
+
   addRecentCampaign: async (userId: string, campaignId: string) => {
     try {
+      await storage.ensureProfileExists(userId);
       const { data: profile } = await supabase
         .from('profiles')
         .select('recentlyviewedids')
@@ -201,16 +226,10 @@ export const storage = {
       const filtered = existingIds.filter((id: string) => id !== campaignId);
       const updatedIds = [campaignId, ...filtered].slice(0, 5);
 
-      if (!profile) {
-        await supabase
-          .from('profiles')
-          .insert({ id: userId, recentlyviewedids: updatedIds });
-      } else {
-        await supabase
-          .from('profiles')
-          .update({ recentlyviewedids: updatedIds })
-          .eq('id', userId);
-      }
+      await supabase
+        .from('profiles')
+        .update({ recentlyviewedids: updatedIds })
+        .eq('id', userId);
     } catch (e) {
       console.debug('[HEARTFUND] Profile updates unavailable');
     }

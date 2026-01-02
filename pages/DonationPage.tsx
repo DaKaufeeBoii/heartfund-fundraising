@@ -226,7 +226,9 @@ const DonationPage: React.FC = () => {
                     <PayPalButtons 
                       style={{ layout: "vertical", shape: "pill", label: "donate" }}
                       createOrder={(data, actions) => {
+                        // Fix for Error: Property 'intent' is missing but required
                         return actions.order.create({
+                          intent: "CAPTURE",
                           purchase_units: [
                             {
                               // Fix: Add currency_code to satisfy PayPal types
