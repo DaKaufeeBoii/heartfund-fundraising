@@ -79,7 +79,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     });
     
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error('[HEARTFUND AUTH] Signup error:', error.message);
+      return { success: false, error: error.message };
+    }
     return { success: true, data };
   };
 

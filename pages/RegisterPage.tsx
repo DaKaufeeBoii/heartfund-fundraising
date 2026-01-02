@@ -17,6 +17,8 @@ const RegisterPage: React.FC = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  const isEmailServiceError = error.includes('Error sending confirmation email');
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -108,9 +110,27 @@ const RegisterPage: React.FC = () => {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl flex items-center gap-3">
-              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <p className="text-sm text-red-700 font-bold">{error}</p>
+            <div className={`mb-6 p-5 rounded-2xl border-l-4 flex flex-col gap-2 ${isEmailServiceError ? 'bg-amber-50 border-amber-500' : 'bg-red-50 border-red-500'}`}>
+              <div className="flex items-center gap-3">
+                <svg className={`w-5 h-5 ${isEmailServiceError ? 'text-amber-600' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className={`text-sm font-black uppercase tracking-tight ${isEmailServiceError ? 'text-amber-800' : 'text-red-800'}`}>
+                  {isEmailServiceError ? 'Email Service Limit Reached' : 'Registration Error'}
+                </p>
+              </div>
+              <p className={`text-sm font-medium ${isEmailServiceError ? 'text-amber-700' : 'text-red-700'}`}>
+                {error}
+              </p>
+              
+              {isEmailServiceError && (
+                <div className="mt-2 p-3 bg-white/50 rounded-xl border border-amber-200">
+                  <p className="text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1">Developer Tip:</p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Go to your <strong>Supabase Dashboard</strong> > <strong>Authentication</strong> > <strong>Providers</strong> > <strong>Email</strong> and turn off <strong>"Confirm email"</strong> to allow instant signups without sending emails.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
